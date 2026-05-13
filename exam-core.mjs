@@ -217,3 +217,4 @@ export function getSelectedTechniques(form) {
     name: input.value,
   }));
 }
+
