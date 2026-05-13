@@ -246,6 +246,11 @@ button, input, select, textarea { font: inherit; }
 .status.passed { background: #e7f7e8; color: #1f6b24; }
 .status.failed { background: #ffebee; color: #a71d2a; }
 
+.muted-inline {
+  color: var(--muted);
+  font-size: 0.88em;
+}
+
 .tech-item {
   display: flex;
   align-items: center;
@@ -344,6 +349,16 @@ button, input, select, textarea { font: inherit; }
   border-radius: 8px;
   background: #edf6ff;
   border: 1px solid #cce1f5;
+}
+
+.section-break {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border-left: 4px solid var(--blue);
+  border-radius: 6px;
+  background: #f3f8fd;
+  color: var(--blue-dark);
+  font-weight: 900;
 }
 
 .technique-stage p { margin: 0 0 4px; color: var(--muted); font-weight: 800; }
