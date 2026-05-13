@@ -4,10 +4,13 @@ import {
   buildPrintableEvaluation,
   calculateEvaluationSummary,
   getSelectedTechniques,
+  getOrderedTechniqueItems,
   gradeLabel,
   grades,
   normalizeToken,
   syllabusData,
+  techniqueName,
+  techniqueSection,
   validateEmail,
   validateExamDraft,
 } from './exam-core.mjs';
@@ -461,18 +464,32 @@ function renderCreateExam() {
 
 function renderTechniquesForGrade() {
   const grade = $('#examGrade').value;
-  const blocks = syllabusData[grade] || {};
-  $('#techniquesArea').innerHTML = Object.entries(blocks).map(([block, techniques]) => `
+  const orderedItems = getOrderedTechniqueItems(grade);
+  const blocks = groupTechniqueItemsBySection(orderedItems);
+  $('#techniquesArea').innerHTML = blocks.map(([block, techniques]) => `
     <section class="tech-block">
       <h3>${escapeHtml(block)}</h3>
-      ${techniques.map((technique) => `
+      ${techniques.map((item) => `
         <label class="tech-item">
-          <input type="checkbox" data-technique value="${escapeHtml(technique)}" checked />
-          <span>${escapeHtml(technique)}</span>
+          <input type="checkbox" data-technique data-section="${escapeHtml(item.section)}" value="${escapeHtml(item.name)}" checked />
+          <span>${escapeHtml(item.name)}</span>
         </label>
       `).join('')}
     </section>
   `).join('');
+}
+
+function groupTechniqueItemsBySection(items) {
+  const sections = [];
+  items.forEach((item) => {
+    const last = sections[sections.length - 1];
+    if (last && last[0] === item.section) {
+      last[1].push(item);
+    } else {
+      sections.push([item.section, [item]]);
+    }
+  });
+  return sections;
 }
 
 function addStudentRow() {
@@ -711,7 +728,7 @@ function renderEvaluationCard(evaluation) {
       <details style="margin-top:10px">
         <summary>Técnicas evaluadas</summary>
         ${techniqueEvaluations.map((item) => `
-          <p><strong>${escapeHtml(item.technique_name)}</strong>: ${item.skipped ? 'omitida' : `${item.score} puntos`} ${item.notes ? `· ${escapeHtml(item.notes)}` : ''}</p>
+          <p><strong>${escapeHtml(techniqueName(item))}</strong>${techniqueSection(item) ? ` <span class="muted-inline">(${escapeHtml(techniqueSection(item))})</span>` : ''}: ${item.skipped ? 'omitida' : `${item.score} puntos`} ${item.notes ? `· ${escapeHtml(item.notes)}` : ''}</p>
         `).join('')}
       </details>
       <button class="btn btn-secondary btn-small print-evaluation" data-evaluation-id="${evaluation.id}" style="margin-top:12px">Imprimir / PDF</button>
@@ -789,7 +806,7 @@ function renderPrintableEvaluation(evaluationId) {
         <tbody>
           ${report.techniqueEvaluations.map((item) => `
             <tr>
-              <td>${escapeHtml(item.technique_name)}</td>
+              <td>${escapeHtml(techniqueName(item))}${techniqueSection(item) ? `<br><small>${escapeHtml(techniqueSection(item))}</small>` : ''}</td>
               <td>${item.skipped ? 'Omitida' : `${item.score} / 10`}</td>
               <td>${escapeHtml(item.notes || '')}</td>
             </tr>
@@ -879,7 +896,8 @@ async function renderExaminerApp(token) {
 
   data.students.forEach((student) => {
     state.examinerAnswers[student.id] = (data.exam.techniques || []).map((technique) => ({
-      technique_name: technique,
+      technique_name: techniqueName(technique),
+      section: techniqueSection(technique),
       score: null,
       skipped: false,
       notes: '',
@@ -894,6 +912,10 @@ function renderExaminerForm() {
   const techniques = payload.exam.techniques || [];
   const techniqueIndex = state.examinerTechniqueIndex;
   const currentTechnique = techniques[techniqueIndex];
+  const currentTechniqueName = techniqueName(currentTechnique);
+  const currentSection = techniqueSection(currentTechnique) || 'Técnicas';
+  const previousSection = techniqueIndex > 0 ? techniqueSection(techniques[techniqueIndex - 1]) : '';
+  const sectionChanged = techniqueIndex === 0 || currentSection !== previousSection;
   const progress = Math.round(((techniqueIndex + 1) / techniques.length) * 100);
   const completedForTechnique = payload.students.filter((student) => answerComplete(state.examinerAnswers[student.id][techniqueIndex])).length;
 
@@ -908,10 +930,11 @@ function renderExaminerForm() {
         <span class="status active">Técnica ${techniqueIndex + 1} de ${techniques.length}</span>
       </div>
       <div class="progress"><span style="width:${progress}%"></span></div>
+      ${sectionChanged ? `<div class="section-break">Empezamos con la sección de ${escapeHtml(currentSection)}</div>` : ''}
       <div class="technique-stage">
         <div>
           <p>Técnica actual</p>
-          <h2>${escapeHtml(currentTechnique)}</h2>
+          <h2>${escapeHtml(currentTechniqueName)}</h2>
         </div>
         <span class="status ${completedForTechnique === payload.students.length ? 'passed' : 'draft'}">${completedForTechnique}/${payload.students.length} alumnos</span>
       </div>
