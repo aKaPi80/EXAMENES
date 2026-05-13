@@ -2,11 +2,11 @@ export const SUPABASE_URL = 'https://zipfwmmwcawfbqofhwmc.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_j1dhehxot0jJ98uUNblN4A_c3ujTqn6';
 
 export const grades = [
-  ['5kyu', '5 KYU (Blanco - Minarai)'],
-  ['4kyu', '4 KYU (Amarillo)'],
-  ['3kyu', '3 KYU (Naranja)'],
-  ['2kyu', '2 KYU (Verde)'],
-  ['1kyu', '1 KYU (Azul)'],
+  ['5kyu', '5 KYU (Amarillo)'],
+  ['4kyu', '4 KYU (Naranja)'],
+  ['3kyu', '3 KYU (Verde)'],
+  ['2kyu', '2 KYU (Azul)'],
+  ['1kyu', '1 KYU (Marron)'],
   ['shodan', 'SHODAN (1º Dan)'],
   ['nidan', 'NIDAN (2º Dan)'],
   ['sandan', 'SANDAN (3º Dan)'],
