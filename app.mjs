@@ -78,7 +78,7 @@ async function init() {
 function renderAuth() {
   app.innerHTML = `
     <section class="auth-card">
-      <div class="brand-mark">BSKF</div>
+      <div class="brand-mark">SKBC</div>
       <h1>Sistema de Exámenes</h1>
       <h2>Panel del profesor</h2>
       <div id="noticeOutlet"></div>
@@ -178,7 +178,7 @@ async function ensureProfessorProfile(name, clubName) {
       user_id: state.user.id,
       email: state.user.email,
       name: name || state.user.user_metadata?.name || state.user.email,
-      club_name: clubName || state.user.user_metadata?.club_name || 'Club BSKF',
+      club_name: clubName || state.user.user_metadata?.club_name || 'Club SKBC',
     }, { onConflict: 'user_id' })
     .select()
     .single();
@@ -208,9 +208,9 @@ function renderProfessorApp() {
   app.innerHTML = `
     <header class="topbar">
       <div class="topbar-title">
-        <div class="topbar-logo">${state.professor.logo_url ? `<img src="${escapeHtml(state.professor.logo_url)}" alt="Logo club" />` : 'BSKF'}</div>
+        <div class="topbar-logo">${state.professor.logo_url ? `<img src="${escapeHtml(state.professor.logo_url)}" alt="Logo club" />` : 'SKBC'}</div>
         <div>
-          <h1>Sistema de Exámenes BSKF</h1>
+          <h1>Sistema de Exámenes SKBC</h1>
           <p>${escapeHtml(state.professor.club_name)} · ${escapeHtml(state.user.email)}</p>
         </div>
       </div>
@@ -275,7 +275,7 @@ function renderConfig() {
     <form id="configForm" class="grid-2">
       <div>
         <label class="card logo-drop" for="logoInput">
-          ${state.professor.logo_url ? `<img src="${escapeHtml(state.professor.logo_url)}" alt="Logo actual" />` : '<div class="brand-mark">BSKF</div>'}
+          ${state.professor.logo_url ? `<img src="${escapeHtml(state.professor.logo_url)}" alt="Logo actual" />` : '<div class="brand-mark">SKBC</div>'}
           <strong>Subir logo</strong>
           <p>PNG/JPG hasta 2MB. Se guarda como imagen del club.</p>
         </label>
@@ -765,8 +765,8 @@ function renderPrintableEvaluation(evaluationId) {
     <article class="print-report">
       <header class="print-report-head">
         <div>
-          <p class="print-kicker">Evaluación BSKF</p>
-          <h1>${escapeHtml(report.clubName || 'Club BSKF')}</h1>
+          <p class="print-kicker">Evaluación SKBC</p>
+          <h1>${escapeHtml(report.clubName || 'Club SKBC')}</h1>
           <h2>${escapeHtml(report.examTitle)}</h2>
         </div>
         <div class="print-result ${report.summary.passed ? 'passed' : 'failed'}">
@@ -875,9 +875,9 @@ function downloadEvaluationPdf(report) {
     y = margin;
   };
 
-  addText('EVALUACION BSKF', margin, y, { size: 12, bold: true, color: [25, 118, 210] });
+  addText('EVALUACION SKBC', margin, y, { size: 12, bold: true, color: [25, 118, 210] });
   y += 30;
-  addText(report.clubName || 'Club BSKF', margin, y, { size: 22, bold: true, color: [18, 79, 141] });
+  addText(report.clubName || 'Club SKBC', margin, y, { size: 22, bold: true, color: [18, 79, 141] });
   y += 26;
   addText(report.examTitle, margin, y, { size: 14, bold: true, color: [75, 93, 115] });
 
@@ -1008,7 +1008,7 @@ async function renderExaminerApp(token) {
   app.innerHTML = `
     <section class="examiner-card">
       <div class="boot-screen" style="margin:0 auto;box-shadow:none">
-        <div class="brand-mark">BSKF</div>
+        <div class="brand-mark">SKBC</div>
         <p>Cargando formulario de evaluación...</p>
       </div>
     </section>
