@@ -750,13 +750,17 @@ function renderPrintableEvaluation(evaluationId) {
     examinerName: evaluation.examiners?.name || '',
     passPercentage: exam.pass_percentage,
     techniqueEvaluations: evaluation.technique_evaluations || evaluation.technique_scores || [],
-    submittedAt: evaluation.submitted_at,
+    submittedAt: evaluation.submitted_at || evaluation.created_at || new Date().toISOString(),
   });
 
+  state.printReport = report;
   $('#panelContent').innerHTML = `
     <div class="print-toolbar">
       <button class="btn btn-secondary" id="backToDetails">Volver a resultados</button>
-      <button class="btn btn-primary" id="printReport">Imprimir / Guardar PDF</button>
+      <div class="btn-row">
+        <button class="btn btn-secondary" id="printReport">Imprimir</button>
+        <button class="btn btn-primary" id="downloadPdf">Descargar PDF</button>
+      </div>
     </div>
     <article class="print-report">
       <header class="print-report-head">
@@ -822,11 +826,141 @@ function renderPrintableEvaluation(evaluationId) {
 
   $('#backToDetails').addEventListener('click', renderExamDetails);
   $('#printReport').addEventListener('click', () => window.print());
+  $('#downloadPdf').addEventListener('click', () => downloadEvaluationPdf(report));
 }
 
 function formatDate(value) {
   if (!value) return '-';
   return new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
+}
+
+function safeFileName(value) {
+  return String(value || 'evaluacion')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase();
+}
+
+function downloadEvaluationPdf(report) {
+  const jsPdf = window.jspdf?.jsPDF;
+  if (!jsPdf) {
+    showErrors('No se pudo cargar el generador de PDF. Usa el botón Imprimir y elige “Guardar como PDF”.');
+    return;
+  }
+
+  const doc = new jsPdf({ unit: 'pt', format: 'a4' });
+  const margin = 42;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  let y = 46;
+
+  const addText = (text, x, yy, options = {}) => {
+    doc.setFont('helvetica', options.bold ? 'bold' : 'normal');
+    doc.setFontSize(options.size || 10);
+    doc.setTextColor(...(options.color || [17, 24, 39]));
+    doc.text(String(text || ''), x, yy, options);
+  };
+
+  const addWrapped = (text, x, yy, width, options = {}) => {
+    const lines = doc.splitTextToSize(String(text || ''), width);
+    addText(lines, x, yy, options);
+    return yy + (lines.length * ((options.size || 10) + 4));
+  };
+
+  const ensureSpace = (needed) => {
+    if (y + needed <= pageHeight - margin) return;
+    doc.addPage();
+    y = margin;
+  };
+
+  addText('EVALUACION BSKF', margin, y, { size: 12, bold: true, color: [25, 118, 210] });
+  y += 30;
+  addText(report.clubName || 'Club BSKF', margin, y, { size: 22, bold: true, color: [18, 79, 141] });
+  y += 26;
+  addText(report.examTitle, margin, y, { size: 14, bold: true, color: [75, 93, 115] });
+
+  const resultText = report.summary.passed ? 'APROBADO' : 'NECESITA INTENTARLO UNA VEZ MAS';
+  doc.setFillColor(...(report.summary.passed ? [231, 247, 232] : [255, 235, 238]));
+  doc.roundedRect(pageWidth - 245, 58, 200, 36, 6, 6, 'F');
+  addText(resultText, pageWidth - 225, 81, {
+    size: 11,
+    bold: true,
+    color: report.summary.passed ? [31, 107, 36] : [156, 27, 27],
+  });
+
+  y += 26;
+  doc.setDrawColor(25, 118, 210);
+  doc.setLineWidth(2);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 28;
+
+  const meta = [
+    ['Alumno', report.studentName],
+    ['Cinturon', report.beltColor || '-'],
+    ['Grado', report.gradeLabel],
+    ['Examinador', report.examinerName || '-'],
+    ['Fecha', formatDate(report.submittedAt)],
+    ['Minimo', `${report.passPercentage}%`],
+  ];
+
+  meta.forEach(([label, value], index) => {
+    const col = index % 3;
+    const row = Math.floor(index / 3);
+    const x = margin + col * 170;
+    const yy = y + row * 46;
+    addText(label, x, yy, { size: 9, bold: true, color: [93, 111, 131] });
+    addText(value, x, yy + 17, { size: 11 });
+  });
+  y += 112;
+
+  const score = [
+    [`${report.summary.totalScore}/${report.summary.maxScore}`, 'puntos'],
+    [`${report.summary.percentage}%`, 'porcentaje final'],
+    [String(report.evaluatedCount), 'tecnicas contadas'],
+    [String(report.skippedCount), 'omitidas'],
+  ];
+
+  score.forEach(([value, label], index) => {
+    const x = margin + index * 125;
+    addText(value, x, y, { size: 18, bold: true, color: [18, 79, 141] });
+    addText(label, x, y + 17, { size: 9, color: [93, 111, 131] });
+  });
+  y += 56;
+
+  addText('Tecnica', margin, y, { bold: true, size: 10, color: [18, 55, 94] });
+  addText('Puntuacion', margin + 245, y, { bold: true, size: 10, color: [18, 55, 94] });
+  addText('Observaciones', margin + 340, y, { bold: true, size: 10, color: [18, 55, 94] });
+  y += 16;
+  doc.setDrawColor(217, 226, 236);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 18;
+
+  report.techniqueEvaluations.forEach((item) => {
+    ensureSpace(52);
+    const startY = y;
+    y = addWrapped(techniqueName(item), margin, y, 205, { size: 10, bold: true });
+    if (techniqueSection(item)) {
+      y = addWrapped(techniqueSection(item), margin, y, 205, { size: 8, color: [93, 111, 131] });
+    }
+    addText(item.skipped ? 'Omitida' : `${item.score} / 10`, margin + 245, startY, { size: 10 });
+    addWrapped(item.notes || '', margin + 340, startY, pageWidth - margin - 340, { size: 9 });
+    y = Math.max(y, startY + 32);
+    doc.setDrawColor(235, 240, 246);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 12;
+  });
+
+  ensureSpace(74);
+  y += 40;
+  doc.setDrawColor(17, 24, 39);
+  doc.line(margin, y, margin + 190, y);
+  doc.line(pageWidth - margin - 190, y, pageWidth - margin, y);
+  addText('Firma examinador', margin, y + 16, { size: 9, color: [75, 85, 99] });
+  addText('Firma alumno / tutor', pageWidth - margin - 190, y + 16, { size: 9, color: [75, 85, 99] });
+
+  doc.save(`${safeFileName(report.studentName)}-${safeFileName(report.examTitle)}.pdf`);
 }
 
 async function updateExamStatus(examId, status) {
