@@ -83,6 +83,58 @@ export function gradeLabel(value) {
   return grades.find(([id]) => id === value)?.[1] ?? value;
 }
 
+export function techniqueName(item) {
+  return typeof item === 'string' ? item : item?.name || item?.technique_name || '';
+}
+
+export function techniqueSection(item) {
+  return typeof item === 'string' ? '' : item?.section || '';
+}
+
+export function getOrderedTechniqueItems(grade) {
+  const blocks = syllabusData[grade] || {};
+  const ordered = [];
+  const consumed = new Set();
+
+  const addBlock = (sectionName) => {
+    const techniques = blocks[sectionName];
+    if (!techniques) return;
+    consumed.add(sectionName);
+    techniques.forEach((name) => ordered.push({ section: sectionName, name }));
+  };
+
+  addBlock('Tai gamae');
+  addBlock('Umpo ho');
+  addBlock('Ukemi');
+
+  Object.keys(blocks)
+    .filter((sectionName) => sectionName.toLowerCase().startsWith('kata'))
+    .forEach(addBlock);
+
+  addBlock('Keimyaku');
+
+  const goho = blocks.Goho || [];
+  const juho = blocks.Juho || [];
+  consumed.add('Goho');
+  consumed.add('Juho');
+  const maxPairs = Math.max(goho.length, juho.length);
+  for (let index = 0; index < maxPairs; index += 1) {
+    if (goho[index]) ordered.push({ section: 'Goho', name: goho[index] });
+    if (juho[index]) ordered.push({ section: 'Juho', name: juho[index] });
+  }
+
+  Object.entries(blocks)
+    .filter(([sectionName]) => !consumed.has(sectionName))
+    .forEach(([sectionName, techniques]) => {
+      techniques.forEach((name) => ordered.push({ section: sectionName, name }));
+    });
+
+  ordered.push({ section: 'Gakka', name: 'Gakka' });
+  ordered.push({ section: 'Embu', name: 'Embu' });
+
+  return ordered;
+}
+
 export function normalizeToken(bytes = 16) {
   const cryptoApi = globalThis.crypto;
   if (cryptoApi?.getRandomValues) {
@@ -160,5 +212,8 @@ export function validateExamDraft({ title, grade, techniques, students, examiner
 }
 
 export function getSelectedTechniques(form) {
-  return [...form.querySelectorAll('[data-technique]:checked')].map((input) => input.value);
+  return [...form.querySelectorAll('[data-technique]:checked')].map((input) => ({
+    section: input.dataset.section || '',
+    name: input.value,
+  }));
 }
