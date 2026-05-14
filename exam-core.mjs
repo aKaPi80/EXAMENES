@@ -1,4 +1,4 @@
-﻿export const SUPABASE_URL = 'https://zipfwmmwcawfbqofhwmc.supabase.co';
+﻿﻿export const SUPABASE_URL = 'https://zipfwmmwcawfbqofhwmc.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_j1dhehxot0jJ98uUNblN4A_c3ujTqn6';
 export const EXAM_SHEET_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxXJu7d3Rzxl8kWLqKoZrt7vt0eLbOiE2tP5JOEJnYHoBMJq7g8CPEyZ_rbPI8xNsns/exec';
 
