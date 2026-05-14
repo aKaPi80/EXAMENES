@@ -1,6 +1,8 @@
-import {
+ import {
+  EXAM_SHEET_WEBAPP_URL,
   SUPABASE_KEY,
   SUPABASE_URL,
+  buildExamSheetPayload,
   buildPrintableEvaluation,
   calculateEvaluationSummary,
   getSelectedTechniques,
@@ -682,7 +684,10 @@ function renderExamDetails() {
         <h2>${escapeHtml(exam.title)}</h2>
         <p>${escapeHtml(gradeLabel(exam.grade))} · ${(exam.techniques || []).length} técnicas · aprobado desde ${exam.pass_percentage}%</p>
       </div>
-      <button class="btn btn-secondary" id="backToExams">Volver</button>
+      <div class="btn-row">
+        <button class="btn btn-success" id="registerPassed">Registrar aprobados en base de datos</button>
+        <button class="btn btn-secondary" id="backToExams">Volver</button>
+      </div>
     </div>
     <div class="details-layout">
       <aside class="card-list">
@@ -707,6 +712,7 @@ function renderExamDetails() {
     </div>
   `;
   $('#backToExams').addEventListener('click', renderExamList);
+  $('#registerPassed').addEventListener('click', registerPassedStudentsInSheet);
   $$('.print-evaluation').forEach((button) => {
     button.addEventListener('click', () => renderPrintableEvaluation(button.dataset.evaluationId));
   });
@@ -734,6 +740,64 @@ function renderEvaluationCard(evaluation) {
       <button class="btn btn-secondary btn-small print-evaluation" data-evaluation-id="${evaluation.id}" style="margin-top:12px">Imprimir / PDF</button>
     </article>
   `;
+}
+
+async function registerPassedStudentsInSheet() {
+  const exam = state.selectedExam;
+  if (!exam) return;
+
+  const passedEvaluations = exam.evaluations.filter((evaluation) => {
+    const techniqueEvaluations = evaluation.technique_evaluations || evaluation.technique_scores || [];
+    return calculateEvaluationSummary(techniqueEvaluations, exam.pass_percentage).passed;
+  });
+
+  if (passedEvaluations.length === 0) {
+    notify('No hay alumnos aprobados para registrar.', 'warning');
+    return;
+  }
+
+  let token = localStorage.getItem('skbcSheetToken') || '';
+  if (!token) {
+    token = prompt('Pega el token configurado en Apps Script para registrar en la base de datos:') || '';
+    token = token.trim();
+    if (!token) return;
+    localStorage.setItem('skbcSheetToken', token);
+  }
+
+  if (!confirm(`Se registrarán ${passedEvaluations.length} alumno(s) aprobado(s) en la pestaña EXAMENES. ¿Continuar?`)) {
+    return;
+  }
+
+  const failed = [];
+
+  for (const evaluation of passedEvaluations) {
+    const payload = buildExamSheetPayload({
+      studentName: evaluation.exam_students?.student_name || '',
+      grade: exam.grade,
+      examinerName: evaluation.examiners?.name || '',
+      submittedAt: evaluation.submitted_at || evaluation.created_at || new Date().toISOString(),
+      registeredBy: state.professor?.name || state.professor?.email || 'Sistema exámenes SKBC',
+      token,
+    });
+
+    try {
+      await fetch(EXAM_SHEET_WEBAPP_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload),
+      });
+    } catch (error) {
+      failed.push(payload.alumno);
+    }
+  }
+
+  if (failed.length) {
+    showErrors(`No se pudieron enviar: ${failed.join(', ')}`);
+    return;
+  }
+
+  notify('Aprobados enviados a Google Sheets. Revisa la pestaña EXAMENES.');
 }
 
 function renderPrintableEvaluation(evaluationId) {
@@ -846,7 +910,7 @@ function safeFileName(value) {
 function downloadEvaluationPdf(report) {
   const jsPdf = window.jspdf?.jsPDF;
   if (!jsPdf) {
-    showErrors('No se pudo cargar el generador de PDF. Usa el botón Imprimir y elige “Guardar como PDF”.');
+    showErrors('No se pudo cargar el generador de PDF. Usa el botón Imprimir y elige Guardar como PDF.');
     return;
   }
 
@@ -1162,7 +1226,7 @@ async function submitExaminerEvaluation(event) {
     state.examinerAnswers[student.id].some((answer) => !answerComplete(answer))
   );
   if (missing) {
-    showErrors('Hay técnicas sin evaluar u omitir. Usa “Omitir” si no quieres puntuar alguna técnica.');
+    showErrors('Hay técnicas sin evaluar u omitir. Usa Omitir si no quieres puntuar alguna técnica.');
     return;
   }
   if (!confirm('¿Enviar la evaluación? Después no se podrá modificar.')) return;
@@ -1200,3 +1264,6 @@ init().catch((error) => {
   console.error(error);
   app.innerHTML = `<section class="auth-card"><div class="notice error">${escapeHtml(error.message)}</div></section>`;
 });
+
+
+
