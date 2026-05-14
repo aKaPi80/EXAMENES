@@ -1,5 +1,6 @@
 export const SUPABASE_URL = 'https://zipfwmmwcawfbqofhwmc.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_j1dhehxot0jJ98uUNblN4A_c3ujTqn6';
+export const EXAM_SHEET_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxXJu7d3Rzxl8kWLqKoZrt7vt0eLbOiE2tP5JOEJnYHoBMJq7g8CPEyZ_rbPI8xNsns/exec';
 
 export const grades = [
   ['5kyu', '5 KYU (Amarillo)'],
@@ -81,6 +82,46 @@ export const syllabusData = {
 
 export function gradeLabel(value) {
   return grades.find(([id]) => id === value)?.[1] ?? value;
+}
+
+export function gradeSheetLabel(value) {
+  const labels = {
+    '5kyu': '5 KYU',
+    '4kyu': '4 KYU',
+    '3kyu': '3 KYU',
+    '2kyu': '2 KYU',
+    '1kyu': '1 KYU',
+    shodan: '1 DAN',
+    nidan: '2 DAN',
+    sandan: '3 DAN',
+    yondan: '4 DAN',
+    godan: '5 DAN',
+  };
+  return labels[value] || String(value || '').toUpperCase();
+}
+
+export function toDateOnly(value) {
+  const date = value ? new Date(value) : new Date();
+  if (Number.isNaN(date.getTime())) return new Date().toISOString().slice(0, 10);
+  return date.toISOString().slice(0, 10);
+}
+
+export function buildExamSheetPayload({
+  studentName,
+  grade,
+  examinerName,
+  submittedAt,
+  registeredBy,
+  token,
+}) {
+  return {
+    alumno: studentName || '',
+    grado: gradeSheetLabel(grade),
+    examinador: examinerName || '',
+    fechaExamen: toDateOnly(submittedAt),
+    registradoPor: registeredBy || 'Sistema exámenes SKBC',
+    token,
+  };
 }
 
 export function techniqueName(item) {
@@ -217,4 +258,3 @@ export function getSelectedTechniques(form) {
     name: input.value,
   }));
 }
-
