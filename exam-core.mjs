@@ -18,65 +18,112 @@ export const grades = [
 export const syllabusData = {
   '5kyu': {
     Goho: ['Uchi uke zuki (ura)', 'Tenshin geri', 'Uwa uke zuki (ura)', 'Uwa uke geri'],
-    Juho: ['Yori nuki (katate)', 'Kote nuki', 'Gyaku gote mae yubi gatame', 'Ude juji'],
+    Juho: ['Yori nuki (katate)', 'Kote nuki', 'Gyaku gote, mae yubi gatame', 'Ude juji (katame to renko)'],
     'Tai gamae': ['Chudan gamae', 'Ichiji gamae', 'Hiraki gamae'],
-    Keimyaku: ['Suigetsu', 'Mikazuki'],
-    'Umpo ho': ['Chidori ashi', 'Kani ashi', 'Kumo ashi', 'Sashi komi ashi'],
+    Keimyaku: ['Suigetsu', 'Mikazuki', 'Hakusetsu'],
+    'Umpo ho': ['Chidori ashi', 'Kani ashi', 'Kumo ashi', 'Juji ashi', 'Sashi komi ashi', 'Zen tenkan', 'Han tenkan'],
     Ukemi: ['Daisharin', 'Yoko ukemi'],
     'Kata tan-en': ['Tenchiken dai ichi', 'Ryuo ken dai ichi'],
+    Randori: ['Gentei goho (single attacks)'],
+    Gakka: ['Dokun (recitar Seiku y Seigan)', 'Cómo comportarse en el dojo', 'Cómo sentarse y respirar durante zazen', 'Lista de vocabulario 1'],
   },
   '4kyu': {
-    Goho: ['Mae ryusui geri', 'Shita uke geri', 'Tsuki ten ichi', 'Juji uke geri', 'Uwa uke zuki'],
-    Juho: ['Maki nuki', 'Ryote yori nuki', 'Johaku nuki', 'Sode nuki'],
+    Goho: ['Mae ryusui geri', 'Shita uke geri', 'Tsuki ten ichi', 'Juji uke geri (omote)', 'Uwa uke zuki (omote) renhanko'],
+    Juho: ['Maki nuki (katate)', 'Ryote yori nuki', 'Johaku nuki (katate & ryote)', 'Johaku dori (katate & ryote)', 'Sode nuki (katate & ryote)'],
     'Tai gamae': ['Gedan gamae', 'Gyaku gedan gamae', 'Hasso gamae'],
-    Keimyaku: ['Mae zanmai', 'Yoko zanmai'],
-    'Umpo ho': ['Sashi kae ashi', 'Fumi komi ashi'],
+    Keimyaku: ['Mae zanmai', 'Yoko zanmai', 'Shin-e', 'Hyaku-e'],
+    'Umpo ho': ['Sashi kae ashi', 'Fumi komi ashi', 'Zen tenkan & han tenkan from kesshu gamae'],
     Ukemi: ['Ushiro ukemi'],
     'Kata tan-en': ['Giwa ken dai ichi'],
+    'Kata sotai': ['Tenchi ken dai ichi', 'Ryuo ken dai ichi'],
+    Randori: ['Gentei goho (combinations)', 'Gentei juho (single grabs)'],
+    Gakka: ['Dokun (recitar Shinjo)', 'Elementos básicos para principiantes', 'La naturaleza única del Shorinji Kempo', 'Lista de vocabulario 2'],
+    Embu: ['Kumi embu list 1: select option A or B and perform with a partner, following taikai rules'],
   },
   '3kyu': {
-    Goho: ['Soto uke zuki', 'Tsubame gaeshi', 'Ushiro ryusui geri', 'Uchi uke geri'],
-    Juho: ['Katate okuri gote', 'Kiri nuki', 'Tsuki nuki'],
+    Goho: ['Soto uke zuki (ura) renhanko', 'Soto uke zuki (omote) renhanko', 'Tsubame gaeshi renhanko', 'Ushiro ryusui geri', 'Shita uke jun geri', 'Uchi uke geri (ura)', 'Uchi uke geri (omote)'],
+    Juho: ['Katate okuri gote', 'Okuri maki tembin', 'Kiri nuki (uchi)', 'Kiri nuki (soto)', 'Tsuki nuki (soto)', 'Tsuki nuki (uchi)', 'Ryote tsuki nuki', 'Juji nuki (katate & ryote)'],
     'Tai gamae': ['Taiki gamae'],
-    Keimyaku: ['Sango', 'Yongo'],
+    Keimyaku: ['Sango', 'Yongo', 'Tenchu', 'Amon'],
+    Ukemi: ['Mae ukemi'],
     'Kata tan-en': ['Tenchi ken dai ni'],
+    Randori: ['Gentei goho (combination attacks)', 'Gentei juho (grabs with strikes)'],
+    Gakka: ['Doshin So y la fundación del Shorinji Kempo', 'Sobre Chinkon', 'El Dokun', 'Qué es el Budo y por qué lo practicamos', 'Gyo: la disciplina del Shorinji Kempo', 'Mitad para tu propia felicidad, mitad para la de los demás'],
+    Embu: ['Kumi embu list 2: select option A or B and perform with a partner, following taikai rules'],
   },
   '2kyu': {
-    Goho: ['Uchi age zuki', 'Soto uke geri', 'Kinteki geri'],
-    Juho: ['Ude juji', 'Ryote maki nuki', 'Johaku maki'],
+    Goho: ['Uchi age zuki (ura & omote)', 'Uchi age geri (ura & omote)', 'Soto uke geri (ura & omote)', 'Soto oshi uke zuki', 'Uchi oshi uke zuki', 'Chidori gaeshi kari ashi', 'Kinteki (gyaku) geri hiza uke nami gaeshi'],
+    Juho: ['Ude juji, tate gassho gatame', 'Ryote maki nuki', 'Ryote okuri gote, ura gatame', 'Johaku maki', 'Juji gote (katate & ryote)', 'Nidan nuki', 'Morote tsuki nuki', 'Gassho nuki', 'Gyaku gote ura gaeshi nage'],
     'Tai gamae': ['Midare gamae'],
-    Keimyaku: ['Sunmyaku', 'San inko'],
-    Ukemi: ['Tobi komi mae ukemi'],
+    Keimyaku: ['Sunmyaku', 'San inko', 'Fushi'],
+    Ukemi: ['Tobi komi mae ukemi (to clear obstacle)'],
     'Kata tan-en': ['Tenchi ken dai san & yon', 'Giwa ken dai ni'],
+    'Kata sotai': ['Giwa ken dai ichi'],
+    Randori: ['Goho free randori', 'Gentei juho randori'],
+    Gakka: ['Establécete a ti mismo y vive en armonía con los demás', 'Ken Zen Ichi Nyo', 'Riki Ai Funi', 'Pautas para un entrenamiento eficaz', 'La mentalidad de crecimiento', 'Ars Longa, Vita Brevis'],
+    Embu: ['Kumi embu list 3: construct an embu using any six listed sequences, following taikai rules'],
   },
   '1kyu': {
-    Goho: ['Kusshin zuki', 'Tenshin geri', 'Han tenshin geri'],
-    Juho: ['Oshi kiri nuki', 'Kiri kaeshi nuki', 'Eri juji'],
-    'Tai gamae': ['Tate muso gamae'],
-    Keimyaku: ['Kekkai', 'Matsukaze'],
-    Ukemi: ['Tobi ukemi'],
+    Goho: ['Kusshin zuki', 'Kusshin geri', 'Kusshin zuki geri', 'Han tenshin geri', 'Yoko tenshin geri', 'Uchi uke zuki (omote)', 'Furi ten ni', 'Tsuki ten ni'],
+    Juho: ['Oshi kiri nuki', 'Kiri kaeshi nuki (katate)', 'Kiri kaeshi nuki (morote)', 'Kiri gote (katate & morote)', 'Sankaku nuki', 'Sode dori', 'Sode maki', 'Sode maki tembin', 'Eri nuki', 'Ude maki', 'Eri juji', 'Kata muna otoshi', 'Ryaku juji gote', 'Maki juji gote', 'Oshi gote (katate & ryote)'],
+    'Tai gamae': ['Tate muso gamae', 'Yoko muso gamae'],
+    Keimyaku: ['Kekkai', 'Matsukaze', 'Rinkyu', 'Danchu'],
+    Ukemi: ['Tobi ukemi from nage waza (gyaku gote)'],
     'Kata sotai': ['Tenchi ken dai ni'],
+    Randori: ['Goho free randori', 'Gentei juho randori'],
+    Gakka: ['Shushu Koju', 'Fusatsu Katsujin', 'Go Ju Ittai', 'Kumite Shutai', 'Fuhai Shoju', 'Los tres niveles de dominio de un arte (Gi, Jutsu, Ryaku)', 'Las tres etapas del aprendizaje de una habilidad (Shu, Ha, Ri)'],
+    Embu: ['Kumi embu list 4: construct a six-sequence embu using techniques from the list and perform with a partner, following taikai rules'],
   },
   shodan: {
-    Goho: ['Tai ten ichi', 'Gyaku ten ichi', 'Keri ten ichi'],
-    Juho: ['Gyaku hiki tembin', 'Soto maki tembin', 'Morote wa nuki'],
-    Keimyaku: ['Kisha', 'Bukkotsu'],
+    Goho: ['Harai uke geri', 'Gedan gaeshi', 'Gyaku tenshin geri', 'Shita uke zuki (ura & omote)', 'Keri ten san (omote)', 'Keri ten san (ura)', 'Kaishin zuki (ura & omote)', 'Tsuki ten san (ura)', 'Tsuki ten san (omote)', 'Uchi oshi uke geri (ura & omote)', 'Soto oshi uke geri', 'Mawashi geri sambo uke nami gaeshi'],
+    Juho: ['Uchi nuki (katate & ryote)', 'Gyaku tembin', 'Morote oshi nuki', 'Hiki otoshi', 'Morote hiki nuki', 'Katate maki gote', 'Ude gyaku dori to morote maki gote', 'Morote juji nuki', 'Morote juji gote', 'Shita uke geri kote nage', 'Kiri kaeshi tembin (katate & morote)', 'Kiri kaeshi maki tembin', 'Katate oshi nuki', 'Kote maki gaeshi'],
+    'Tai gamae': ['Nio gamae'],
+    Ukemi: ['Ippon se nage'],
+    'Kata tan-en': ['Tenchi ken dai go & roku', 'Byakuren ken dai ichi'],
+    Randori: ['Goho free randori with protectors', 'Gentei juho randori'],
+    Keimyaku: ['Kisha', 'Bukkotsu', 'Chuin', 'Nichigetsu'],
+    Gakka: ['Entrega previa: ¿Qué es la verdadera fuerza?', 'Entrega previa: tus motivos para empezar Shorinji Kempo y tu estado mental actual', 'Las enseñanzas clave del Shorinji Kempo', 'Pautas para un entrenamiento eficaz', 'Los tres niveles de dominio de un arte', 'Las tres etapas del aprendizaje de una habilidad', 'Tipos de entrenamiento', 'Los cinco elementos del atemi', 'Sen', "Ma'ai"],
+    Embu: ['Self-constructed kumi embu, following taikai rules'],
   },
   nidan: {
-    Goho: ['Tai ten ichi', 'Gyaku ten ichi (ura & omote)', 'Kon ten ichi', 'Jun geri chi ichi'],
-    Juho: ['Morote gyaku gote', 'Morote okuri gote', 'Okuri dori', 'Okuri hiji zeme'],
+    Goho: ['Tai ten ichi', 'Gyaku ten ichi (ura & omote)', 'Kon ten ichi', 'Jun geri chi ichi', 'Gyaku geri chi ichi', 'Harai uke chi ni', 'Jun geri chi san', 'Gyaku geri chi san', 'Hangetsu geri', 'Keri ten ichi sukui kubi nage', 'Tanto furi age ryusui geri', 'Tanto tsuki komi shita uke uchi otoshi geri', 'Tanto tsuki komi shita uke geri kote nage'],
+    Juho: ['Gyakute nage, gyakute gatame', 'Ryu nage, ryu gatame', 'Soto maki tembin', 'Uwa uke nage', 'Uwa uke gyakute nage', 'Hiki tembin', 'Gyaku hiki tembin', 'Gassho hiki tembin', 'Morote maki nuki', 'Morote wa nuki', 'Morote gyaku gote', 'Morote okuri gote, baku ho ichi', 'Okuri tembin dori (two types)', 'Okuri dori', 'Okuri hiji zeme', 'Hiji nuki mae tembin', 'Tsuri otoshi', 'Tsuri age dori', 'Hiki muna otoshi', 'Ryo muna otoshi', 'Maki otoshi', 'Soto maki otoshi', 'Nuki uchi oshi gote', 'Ninin nuki'],
+    'Kata tan-en': ['Tenchi ken dai ichi - dai roku (migi & hidari)', 'Giwa ken dai ichi - dai ni', 'Byakuren ken dai ichi', 'Ko manji ken'],
+    'Kata sotai': ['Giwa ken dai ichi', 'Tenchi ken dai ni'],
+    Randori: ['Goho free randori with protectors', 'Gentei juho randori'],
+    Shakujo: ['Shakujo kihon furi', 'Tenchi ken dai ichi - dai san', 'Giwa ken dai ichi - dai ni'],
+    Gakka: ['Entrega previa: mitad para tu propia felicidad, mitad para la de los demás', 'Entrega previa: sobre la defensa personal', 'En el examen: establécete a ti mismo y vive en armonía con los demás', 'En el examen: el poder del Ki', 'En el examen: Bodhidharma, el Zen y el templo Shaolin', 'En el examen: 3 recipientes, 3 sistemas, 25 grupos', 'En el examen: graduaciones y rangos en Shorinji Kempo', 'En el examen: historia de la BSKF', 'En el examen: el Manji y el significado del logo de la BSKF'],
+    Embu: ['Kumi embu autoconstruido, siguiendo las reglas de taikai'],
   },
   sandan: {
-    Goho: ['Machi geri', 'Dan geri sambo uke', 'Sokuto geri hiki ashi', 'Mikazuki gaeshi'],
-    Juho: ['Sode maki gaeshi', 'Sode guchi dori', 'Kiri kaeshi gote', 'Kiri kaeshi nage'],
+    Goho: ['Machi geri', 'Dan geri sambo uke dan geri gaeshi', 'Sokuto geri hiki ashi nami gaeshi', 'Mikazuki gaeshi kari ashi', 'Suigetsu gaeshi oshi taoshi', 'Hangetsu gaeshi sukui kubi nage', 'Chudan gaeshi ren han ko', 'Fukko chi ni', 'Soto uke dan zuki', 'Uchi age dan zuki', 'Shita uke dan zuki', 'Harai uke dan zuki', 'Uwa uke zuki with nyoi'],
+    Juho: ['Age nuki', 'Idori okuri gote', 'Idori gyaku gote', 'Idori oshi gote', 'Katate nage', 'Gyaku katate nage', 'Okuri katate nage', 'Gassho katate nage', 'Ryote katate nage', 'Morote katate nage', 'Sode maki gaeshi', 'Sode guchi dori', 'Sode guchi maki', 'Kiri kaeshi gote', 'Kiri kaeshi nage', 'Morote kiri kaeshi nage', 'Uwa uke se nage', 'Furi sute omote nage', 'Morote okuri gote nage', 'Okuri tsuki taoshi', 'Koshi kujiki', 'Konoha okuri', 'Konoha gaeshi', 'Okuri yubi gaeshi', 'Okuri shishi dori', 'Gassho okuri dori', 'Nigiri gaeshi'],
+    'Kata tan-en': ['Ko manji ken (2nd section ryuo ken dai ichi, 4th section ryu no kata)'],
+    Randori: ['Goho free randori with protectors', 'Gentei juho randori', 'Gentei go-ju randori (single attack)'],
+    Shakujo: ['Tenchi ken dai yon - dai roku', 'Byakuren ken dai ichi (2 versions)', 'Ido enren dai ichi - dai ni'],
+    Gakka: ['Entrega previa: Doshin So y la fundación del Shorinji Kempo', 'Entrega previa: Gyo, la disciplina del Shorinji Kempo', 'En el examen: el Dokun', 'En el examen: sobre Kongo Zen', 'En el examen: los elementos clave de la enseñanza de Buda', 'En el examen: Dharma', 'En el examen: destino y libre albedrío', 'En el examen: karma y destino', 'En el examen: el Camino Medio'],
+    Embu: ['Kumi embu autoconstruido, siguiendo las reglas de taikai'],
   },
   yondan: {
-    Goho: ['Bukkotsu nage', 'Harai bukkotsu nage', 'Kubi jime shuho', 'Kubi jime nage'],
-    Juho: ['Shikake techniques', 'Ura techniques'],
+    Juho: ['Bukkotsu nage', 'Harai bukkotsu nage', 'Ushiro bukkotsu nage', 'Kubi jime shuho juji nage', 'Kubi jime nage', 'Kenjime dori', 'Tembin nage', 'Katate kumade gaeshi', 'Ryote kumade gaeshi', 'Okuri gassho (two types)', 'Kannuki okuri dori', 'Kannuki soto tembin', 'Gassho gyaku gote', 'Gyaku gassho nage (two types)', 'Gyaku sode dori', 'Gyaku sode maki', 'Hangetsu kubi nage', 'Osae kannuki nage soto', 'Osae kannuki nage uchi', 'Omote nage', 'Ura nage', 'Maki uchi kubi nage', 'Katate nage kiri kaeshi', 'Okuri kannuki gote', 'Maki komi gote', 'Okuri eri dori', 'Ushiro eri dori', 'Yahazu nage', 'Ushiro kubi nage', 'Ushiro sode maki (dori)', 'Oshi uke nage', 'Oshi uke maki nage', 'Gassho choji', 'Gassho tsuki otoshi', 'Ashi nuki (two types)'],
+    Goho: ['Chudan gaeshi to uchi uke zuki', 'Gedan gaeshi to tobi ni ren geri'],
+    'Kata tan-en': ['All (hidari and migi)'],
+    'Kata sotai': ['All (hidari and migi)'],
+    Randori: ['Goho free randori with protectors', 'Gentei juho randori', 'Gentei go-ju randori'],
+    Shakujo: ['Tenchi ken dai ichi - dai roku (hidari & migi)', 'Ko manji ken', 'Ido enren dai san - dai roku'],
+    Appo: ['Oyayubi zeme', 'Yongo zeme', 'Sango zeme', 'Bukkotsu zeme'],
+    Gakka: ['Entrega previa: sobre el liderazgo en Shorinji Kempo', 'Entrega previa: las Cuatro Nobles Verdades', 'Entrega previa: el Noble Óctuple Sendero', 'Entrega previa: vacuidad y no-yo', 'Entrega previa: budismo y moralidad', 'Entrega previa: budismo y ciencia', 'En el examen: no requerido'],
+    Embu: ['Kumi embu autoconstruido, siguiendo las reglas de taikai'],
   },
   godan: {
-    Goho: ['Kannuki katate nage', 'Katate kannuki nage', 'Ryote kannuki nage', 'Tekubi dori'],
-    Bo: ['Randori (foam bo)'],
+    Juho: ['Kannuki katate nage', 'Katate kannuki nage', 'Ryote kannuki nage', 'Kannuki nai tembin', 'Tekubi dori', 'Choji dori', 'Mae gami dori', 'Sode juji', 'Shikumi koshi nage', 'Shikumi nai tembin', 'Obi dori', 'Kata uchi nage', 'Tora daoshi (2 types)', 'Fukko daoshi (3 types)', 'Hasami daoshi (2 types)', 'Hagai jime to shuho', 'Sode dori nai tembin', 'Sode maki gaeshi ura', 'Okuri eri dori omote', 'Kubi jime nage omote', 'Choji nage', 'Okuri gassho konoha nage', 'Konoha choji', 'Gyaku konoha gaeshi', 'Omote kumade gaeshi', 'Okuri hiji zeme omote', 'Uchi gyakute dori', 'Soto gyakute dori', 'Kote nage from jo chu ni ren zuki'],
+    'Kata tan-en': ['All (hidari and migi)'],
+    'Kata sotai': ['All (hidari and migi)'],
+    Randori: ['Goho free randori with protectors', 'Gentei juho randori', 'Gentei go-ju randori', 'Randori (foam bo)'],
+    'Shakujo tan-en': ['Tenchi ken dai ichi - dai roku (hidari & migi)', 'Giwaken dai ichi - dai ni', 'Byakuren ken dai ichi', 'Ko manji ken (migi & hidari)', 'Ido enren dai ichi - dai ju (hidari & migi)'],
+    'Shakujo sotai': ['Uwa uke uchi otoshi', 'Yoko uke shigoki zuki', 'Tenchi ken dai ichi', 'Byakuren ken dai ichi'],
+    Appo: ['Tsurigane zeme', 'Sunmyaku zeme', 'Gokoku zeme', 'Shikoku zeme', 'Yako zeme'],
+    Gakka: ['Requisitos para Daikenshi: se examinan por separado'],
   },
 };
 
@@ -133,6 +180,22 @@ export function techniqueSection(item) {
   return typeof item === 'string' ? '' : item?.section || '';
 }
 
+function expandTechniqueVariants(name) {
+  const value = String(name || '').trim();
+  const variantMatch = value.match(/\((katate|ryote|morote)\s*(?:&|\/)\s*(katate|ryote|morote)\)/i);
+
+  if (!variantMatch) return [value];
+
+  const baseName = value.replace(variantMatch[0], '').replace(/\s+/g, ' ').trim();
+  const labels = {
+    katate: 'Katate',
+    ryote: 'Ryote',
+    morote: 'Morote',
+  };
+
+  return [variantMatch[1], variantMatch[2]].map((variant) => `${labels[variant.toLowerCase()] || variant} ${baseName}`);
+}
+
 export function getOrderedTechniqueItems(grade) {
   const blocks = syllabusData[grade] || {};
   const ordered = [];
@@ -142,7 +205,9 @@ export function getOrderedTechniqueItems(grade) {
     const techniques = blocks[sectionName];
     if (!techniques) return;
     consumed.add(sectionName);
-    techniques.forEach((name) => ordered.push({ section: sectionName, name }));
+    techniques.forEach((name) => {
+      expandTechniqueVariants(name).forEach((expandedName) => ordered.push({ section: sectionName, name: expandedName }));
+    });
   };
 
   addBlock('Tai gamae');
@@ -154,6 +219,8 @@ export function getOrderedTechniqueItems(grade) {
     .forEach(addBlock);
 
   addBlock('Keimyaku');
+  consumed.add('Gakka');
+  consumed.add('Embu');
 
   const goho = blocks.Goho || [];
   const juho = blocks.Juho || [];
@@ -161,18 +228,24 @@ export function getOrderedTechniqueItems(grade) {
   consumed.add('Juho');
   const maxPairs = Math.max(goho.length, juho.length);
   for (let index = 0; index < maxPairs; index += 1) {
-    if (goho[index]) ordered.push({ section: 'Goho', name: goho[index] });
-    if (juho[index]) ordered.push({ section: 'Juho', name: juho[index] });
+    if (goho[index]) {
+      expandTechniqueVariants(goho[index]).forEach((name) => ordered.push({ section: 'Goho', name }));
+    }
+    if (juho[index]) {
+      expandTechniqueVariants(juho[index]).forEach((name) => ordered.push({ section: 'Juho', name }));
+    }
   }
 
   Object.entries(blocks)
     .filter(([sectionName]) => !consumed.has(sectionName))
     .forEach(([sectionName, techniques]) => {
-      techniques.forEach((name) => ordered.push({ section: sectionName, name }));
+      techniques.forEach((name) => {
+        expandTechniqueVariants(name).forEach((expandedName) => ordered.push({ section: sectionName, name: expandedName }));
+      });
     });
 
-  ordered.push({ section: 'Gakka', name: 'Gakka' });
-  ordered.push({ section: 'Embu', name: 'Embu' });
+  addBlock('Gakka');
+  addBlock('Embu');
 
   return ordered;
 }
@@ -259,5 +332,4 @@ export function getSelectedTechniques(form) {
     name: input.value,
   }));
 }
-
 
