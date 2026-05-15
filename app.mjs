@@ -1,4 +1,4 @@
- import {
+ ﻿import {
   EXAM_SHEET_WEBAPP_URL,
   SUPABASE_KEY,
   SUPABASE_URL,
@@ -422,7 +422,7 @@ function renderCreateExam() {
           <input id="examTitle" placeholder="Examen 3 KYU - Mayo 2026" required />
         </div>
         <div class="field">
-          <label for="examGrade">Grado</label>
+          <label for="examGrade">Grado al que se examina</label>
           <select id="examGrade" required>
             <option value="">Selecciona un grado</option>
             ${grades.map(([id, label]) => `<option value="${id}">${label}</option>`).join('')}
@@ -433,7 +433,7 @@ function renderCreateExam() {
           <input id="passPercentage" type="range" min="40" max="90" value="65" />
         </div>
       </div>
-      <div class="notice">Selecciona primero un grado para mostrar las técnicas del syllabus.</div>
+      <div class="notice">Selecciona el grado objetivo del examen: Minarai/Blanco examina 5 KYU, 5 KYU examina 4 KYU, 4 KYU examina 3 KYU, y así sucesivamente.</div>
       <div id="techniquesArea" class="technique-grid"></div>
       <div class="section-head" style="margin-top:22px">
         <div>
@@ -756,13 +756,10 @@ async function registerPassedStudentsInSheet() {
     return;
   }
 
-  let token = localStorage.getItem('skbcSheetToken') || '';
-  if (!token) {
-    token = prompt('Pega el token configurado en Apps Script para registrar en la base de datos:') || '';
-    token = token.trim();
-    if (!token) return;
-    localStorage.setItem('skbcSheetToken', token);
-  }
+  const savedToken = localStorage.getItem('skbcSheetToken') || '';
+  const token = (prompt('Pega el token configurado en Apps Script para registrar en la base de datos:', savedToken) || '').trim();
+  if (!token) return;
+  localStorage.setItem('skbcSheetToken', token);
 
   if (!confirm(`Se registrarán ${passedEvaluations.length} alumno(s) aprobado(s) en la pestaña EXAMENES. ¿Continuar?`)) {
     return;
@@ -1264,6 +1261,4 @@ init().catch((error) => {
   console.error(error);
   app.innerHTML = `<section class="auth-card"><div class="notice error">${escapeHtml(error.message)}</div></section>`;
 });
-
-
 
