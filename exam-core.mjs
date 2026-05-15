@@ -182,7 +182,7 @@ export function techniqueSection(item) {
 
 function expandTechniqueVariants(name) {
   const value = String(name || '').trim();
-  const variantMatch = value.match(/\((katate|ryote|morote)\s*(?:&|\/)\s*(katate|ryote|morote)\)/i);
+  const variantMatch = value.match(/\((katate|ryote|morote|ura|omote)\s*(?:&|\/)\s*(katate|ryote|morote|ura|omote)\)/i);
 
   if (!variantMatch) return [value];
 
@@ -191,6 +191,8 @@ function expandTechniqueVariants(name) {
     katate: 'Katate',
     ryote: 'Ryote',
     morote: 'Morote',
+    ura: 'Ura',
+    omote: 'Omote',
   };
 
   return [variantMatch[1], variantMatch[2]].map((variant) => `${labels[variant.toLowerCase()] || variant} ${baseName}`);
