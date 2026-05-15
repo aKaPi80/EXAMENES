@@ -1,4 +1,4 @@
- ﻿import {
+﻿import {
   EXAM_SHEET_WEBAPP_URL,
   SUPABASE_KEY,
   SUPABASE_URL,
@@ -29,6 +29,7 @@ const state = {
   examinerPayload: null,
   examinerTechniqueIndex: 0,
   examinerAnswers: {},
+  customTechniqueCounter: 0,
 };
 
 const escapeHtml = (value) => String(value ?? '')
@@ -408,6 +409,7 @@ function renderExamCard(exam) {
 }
 
 function renderCreateExam() {
+  state.customTechniqueCounter = 0;
   $('#panelContent').innerHTML = `
     <div class="section-head">
       <div>
@@ -468,17 +470,25 @@ function renderTechniquesForGrade() {
   const grade = $('#examGrade').value;
   const orderedItems = getOrderedTechniqueItems(grade);
   const blocks = groupTechniqueItemsBySection(orderedItems);
-  $('#techniquesArea').innerHTML = blocks.map(([block, techniques]) => `
-    <section class="tech-block">
-      <h3>${escapeHtml(block)}</h3>
-      ${techniques.map((item) => `
-        <label class="tech-item">
-          <input type="checkbox" data-technique data-section="${escapeHtml(item.section)}" value="${escapeHtml(item.name)}" checked />
-          <span>${escapeHtml(item.name)}</span>
-        </label>
-      `).join('')}
-    </section>
-  `).join('');
+  $('#techniquesArea').innerHTML = `
+    ${blocks.map(([block, techniques]) => `
+      <section class="tech-block">
+        <h3>${escapeHtml(block)}</h3>
+        ${techniques.map((item, index) => renderTechniqueEditor(item, `${slugifyId(block)}-${index}`)).join('')}
+      </section>
+    `).join('')}
+    ${grade ? `
+      <section class="tech-block custom-tech-block">
+        <div class="tech-block-head">
+          <h3>Técnicas añadidas</h3>
+          <button class="btn btn-secondary btn-small" id="addCustomTechniqueBtn" type="button">Añadir técnica</button>
+        </div>
+        <p class="helper-text">Solo se guardarán en este examen concreto.</p>
+        <div id="customTechniquesArea" class="custom-techniques"></div>
+      </section>
+    ` : ''}
+  `;
+  $('#addCustomTechniqueBtn')?.addEventListener('click', addCustomTechniqueRow);
 }
 
 function groupTechniqueItemsBySection(items) {
@@ -492,6 +502,47 @@ function groupTechniqueItemsBySection(items) {
     }
   });
   return sections;
+}
+
+function slugifyId(value) {
+  return String(value || 'tech')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'tech';
+}
+
+function renderTechniqueEditor(item, id) {
+  const inputId = `techniqueName-${id}`;
+  return `
+    <label class="tech-item technique-editor">
+      <input type="checkbox" data-technique data-section="${escapeHtml(item.section)}" data-technique-name-input="#${escapeHtml(inputId)}" value="${escapeHtml(item.name)}" checked />
+      <input id="${escapeHtml(inputId)}" class="technique-name-input" value="${escapeHtml(item.name)}" aria-label="Nombre de técnica" />
+    </label>
+  `;
+}
+
+function addCustomTechniqueRow() {
+  state.customTechniqueCounter += 1;
+  const index = state.customTechniqueCounter;
+  $('#customTechniquesArea').insertAdjacentHTML('beforeend', `
+    <div class="custom-technique-row">
+      <input type="checkbox" data-technique data-section="Técnicas añadidas" data-technique-name-input="#customTechniqueName-${index}" value="" checked hidden />
+      <div class="field">
+        <label for="customTechniqueName-${index}">Nombre de técnica</label>
+        <input id="customTechniqueName-${index}" class="technique-name-input" placeholder="Ej. Defensa especial para este examen" />
+      </div>
+      <button class="btn btn-danger btn-small" type="button" data-remove-custom-technique>Eliminar</button>
+    </div>
+  `);
+  bindCustomTechniqueRemoveButtons();
+}
+
+function bindCustomTechniqueRemoveButtons() {
+  $$('[data-remove-custom-technique]').forEach((button) => {
+    button.onclick = () => button.closest('.custom-technique-row').remove();
+  });
 }
 
 function addStudentRow() {
