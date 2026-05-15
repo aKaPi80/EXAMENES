@@ -331,7 +331,8 @@ export function validateExamDraft({ title, grade, techniques, students, examiner
 export function getSelectedTechniques(form) {
   return [...form.querySelectorAll('[data-technique]:checked')].map((input) => ({
     section: input.dataset.section || '',
-    name: input.value,
-  }));
+    name: input.dataset.techniqueNameInput
+      ? form.querySelector(input.dataset.techniqueNameInput)?.value.trim() || input.value
+      : input.value,
+  })).filter((item) => item.name);
 }
-
