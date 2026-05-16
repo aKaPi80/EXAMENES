@@ -1,10 +1,11 @@
-﻿import {
+﻿﻿import {
   EXAM_SHEET_WEBAPP_URL,
   SUPABASE_KEY,
   SUPABASE_URL,
   buildExamSheetPayload,
   buildPrintableEvaluation,
   calculateEvaluationSummary,
+  getPreviousGohoJuhoTechniqueItems,
   getSelectedTechniques,
   getOrderedTechniqueItems,
   gradeLabel,
@@ -469,6 +470,7 @@ function renderCreateExam() {
 function renderTechniquesForGrade() {
   const grade = $('#examGrade').value;
   const orderedItems = getOrderedTechniqueItems(grade);
+  const previousGohoJuhoItems = getPreviousGohoJuhoTechniqueItems(grade);
   const blocks = groupTechniqueItemsBySection(orderedItems);
   $('#techniquesArea').innerHTML = `
     ${blocks.map(([block, techniques]) => `
@@ -484,11 +486,26 @@ function renderTechniquesForGrade() {
           <button class="btn btn-secondary btn-small" id="addCustomTechniqueBtn" type="button">Añadir técnica</button>
         </div>
         <p class="helper-text">Solo se guardarán en este examen concreto.</p>
+        ${previousGohoJuhoItems.length ? `
+          <div class="previous-technique-picker">
+            <div class="field">
+              <label for="previousTechniqueSelect">Añadir Goho/Juho de grados anteriores</label>
+              <select id="previousTechniqueSelect">
+                <option value="">Selecciona una técnica</option>
+                ${previousGohoJuhoItems.map((item, index) => `
+                  <option value="${index}">${escapeHtml(item.gradeLabel)} · ${escapeHtml(item.section)} · ${escapeHtml(item.name)}</option>
+                `).join('')}
+              </select>
+            </div>
+            <button class="btn btn-secondary btn-small" id="addPreviousTechniqueBtn" type="button">Añadir seleccionada</button>
+          </div>
+        ` : '<p class="helper-text">No hay grados anteriores para añadir Goho/Juho.</p>'}
         <div id="customTechniquesArea" class="custom-techniques"></div>
       </section>
     ` : ''}
   `;
   $('#addCustomTechniqueBtn')?.addEventListener('click', addCustomTechniqueRow);
+  $('#addPreviousTechniqueBtn')?.addEventListener('click', () => addPreviousTechniqueRow(previousGohoJuhoItems));
 }
 
 function groupTechniqueItemsBySection(items) {
@@ -526,12 +543,39 @@ function renderTechniqueEditor(item, id) {
 function addCustomTechniqueRow() {
   state.customTechniqueCounter += 1;
   const index = state.customTechniqueCounter;
+  addTechniqueRow({
+    inputId: `customTechniqueName-${index}`,
+    section: 'Técnicas añadidas',
+    name: '',
+    label: 'Nombre de técnica',
+    placeholder: 'Ej. Defensa especial para este examen',
+  });
+}
+
+function addPreviousTechniqueRow(previousGohoJuhoItems) {
+  const select = $('#previousTechniqueSelect');
+  const item = previousGohoJuhoItems[Number(select?.value)];
+  if (!item) return;
+
+  state.customTechniqueCounter += 1;
+  const index = state.customTechniqueCounter;
+  addTechniqueRow({
+    inputId: `customTechniqueName-${index}`,
+    section: `Repaso ${item.gradeLabel} · ${item.section}`,
+    name: item.name,
+    label: 'Técnica añadida desde grado anterior',
+    placeholder: '',
+  });
+  select.value = '';
+}
+
+function addTechniqueRow({ inputId, section, name, label, placeholder }) {
   $('#customTechniquesArea').insertAdjacentHTML('beforeend', `
     <div class="custom-technique-row">
-      <input type="checkbox" data-technique data-section="Técnicas añadidas" data-technique-name-input="#customTechniqueName-${index}" value="" checked hidden />
+      <input type="checkbox" data-technique data-section="${escapeHtml(section)}" data-technique-name-input="#${escapeHtml(inputId)}" value="${escapeHtml(name)}" checked hidden />
       <div class="field">
-        <label for="customTechniqueName-${index}">Nombre de técnica</label>
-        <input id="customTechniqueName-${index}" class="technique-name-input" placeholder="Ej. Defensa especial para este examen" />
+        <label for="${escapeHtml(inputId)}">${escapeHtml(label)}</label>
+        <input id="${escapeHtml(inputId)}" class="technique-name-input" value="${escapeHtml(name)}" placeholder="${escapeHtml(placeholder)}" />
       </div>
       <button class="btn btn-danger btn-small" type="button" data-remove-custom-technique>Eliminar</button>
     </div>
