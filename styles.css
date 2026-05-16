@@ -375,6 +375,19 @@ button, input, select, textarea { font: inherit; }
   flex-wrap: wrap;
 }
 
+.review-box {
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+
+.review-box summary {
+  cursor: pointer;
+  font-weight: 800;
+  color: var(--blue-dark);
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
