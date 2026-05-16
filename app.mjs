@@ -1,4 +1,4 @@
-import {
+﻿import {
   EXAM_SHEET_WEBAPP_URL,
   SUPABASE_KEY,
   SUPABASE_URL,
@@ -958,6 +958,9 @@ function renderExamDetails() {
   $$('.print-evaluation').forEach((button) => {
     button.addEventListener('click', () => renderPrintableEvaluation(button.dataset.evaluationId));
   });
+  $$('.save-review').forEach((button) => {
+    button.addEventListener('click', () => saveProfessorReview(button.dataset.evaluationId));
+  });
 }
 
 async function copyLink(url) {
@@ -971,17 +974,37 @@ async function copyLink(url) {
 
 function renderEvaluationCard(evaluation) {
   const techniqueEvaluations = evaluation.technique_evaluations || evaluation.technique_scores || [];
-  const summary = calculateEvaluationSummary(techniqueEvaluations, state.selectedExam?.pass_percentage || 0);
+  const passPercentage = state.selectedExam?.pass_percentage || 0;
+  const adjustmentPoints = evaluationAdjustmentPoints(evaluation);
+  const originalSummary = calculateEvaluationSummary(techniqueEvaluations, passPercentage);
+  const summary = calculateEvaluationSummary(techniqueEvaluations, passPercentage, adjustmentPoints);
   const skippedCount = techniqueEvaluations.filter((item) => item.skipped).length;
   const evaluatedCount = techniqueEvaluations.length - skippedCount;
   return `
     <article class="result-card">
       <h3>${escapeHtml(evaluation.exam_students?.student_name || 'Estudiante')}</h3>
       <p><strong>Examinador:</strong> ${escapeHtml(evaluation.examiners?.name || '')}</p>
+      ${adjustmentPoints ? `<p><strong>Resultado original:</strong> ${originalSummary.totalScore}/${originalSummary.maxScore} puntos · ${originalSummary.percentage}%</p>` : ''}
       <p><strong>Puntuación:</strong> ${summary.totalScore}/${summary.maxScore} puntos · ${summary.percentage}%</p>
       <p><strong>Mínimo para aprobar:</strong> ${state.selectedExam?.pass_percentage || 0}%</p>
       <p><strong>Técnicas contadas:</strong> ${evaluatedCount}${skippedCount ? ` · ${skippedCount} omitida${skippedCount === 1 ? '' : 's'}` : ''}</p>
       <span class="status ${summary.passed ? 'passed' : 'failed'}">${summary.passed ? 'Aprobado' : 'Necesita intentarlo una vez más'}</span>
+      <details class="review-box" style="margin-top:10px">
+        <summary>Revisión del profesor</summary>
+        <p class="helper-text">Uso interno. El motivo no aparece en el informe final del alumno.</p>
+        <div class="grid-2">
+          <div class="field">
+            <label for="reviewPoints-${escapeHtml(evaluation.id)}">Ajuste de puntos</label>
+            <input id="reviewPoints-${escapeHtml(evaluation.id)}" type="number" step="1" class="review-points" data-evaluation-id="${escapeHtml(evaluation.id)}" value="${escapeHtml(adjustmentPoints)}" />
+          </div>
+          <div class="field">
+            <label for="reviewReason-${escapeHtml(evaluation.id)}">Motivo interno</label>
+            <input id="reviewReason-${escapeHtml(evaluation.id)}" class="review-reason" data-evaluation-id="${escapeHtml(evaluation.id)}" value="${escapeHtml(evaluation.adjustment_reason || '')}" placeholder="Ej. Corrección del tribunal" />
+          </div>
+        </div>
+        ${adjustmentPoints || evaluation.adjustment_reason ? `<p><strong>Ajuste aplicado:</strong> ${adjustmentPoints > 0 ? '+' : ''}${adjustmentPoints} punto${Math.abs(adjustmentPoints) === 1 ? '' : 's'}${evaluation.adjustment_reason ? ` · ${escapeHtml(evaluation.adjustment_reason)}` : ''}</p>` : ''}
+        <button class="btn btn-secondary btn-small save-review" type="button" data-evaluation-id="${escapeHtml(evaluation.id)}">Guardar revisión</button>
+      </details>
       <details style="margin-top:10px">
         <summary>Técnicas evaluadas</summary>
         ${techniqueEvaluations.map((item) => `
@@ -993,13 +1016,42 @@ function renderEvaluationCard(evaluation) {
   `;
 }
 
+function evaluationAdjustmentPoints(evaluation) {
+  return Number(evaluation.adjustment_points ?? evaluation.professor_adjustment_points ?? 0) || 0;
+}
+
+async function saveProfessorReview(evaluationId) {
+  const card = $(`[data-evaluation-id="${CSS.escape(evaluationId)}"]`)?.closest('.result-card');
+  const points = Number($(`.review-points[data-evaluation-id="${CSS.escape(evaluationId)}"]`, card)?.value || 0);
+  const reason = ($(`.review-reason[data-evaluation-id="${CSS.escape(evaluationId)}"]`, card)?.value || '').trim();
+
+  if (!Number.isFinite(points)) {
+    showErrors('El ajuste de puntos no es válido.');
+    return;
+  }
+
+  const { error } = await supabase.rpc('adjust_evaluation_review', {
+    p_evaluation_id: evaluationId,
+    p_adjustment_points: Math.round(points),
+    p_adjustment_reason: reason,
+  });
+
+  if (error) {
+    showErrors(error.message);
+    return;
+  }
+
+  notify('Revisión guardada.');
+  await viewExamDetails(state.selectedExam.id);
+}
+
 async function registerPassedStudentsInSheet() {
   const exam = state.selectedExam;
   if (!exam) return;
 
   const passedEvaluations = exam.evaluations.filter((evaluation) => {
     const techniqueEvaluations = evaluation.technique_evaluations || evaluation.technique_scores || [];
-    return calculateEvaluationSummary(techniqueEvaluations, exam.pass_percentage).passed;
+    return calculateEvaluationSummary(techniqueEvaluations, exam.pass_percentage, evaluationAdjustmentPoints(evaluation)).passed;
   });
 
   if (passedEvaluations.length === 0) {
@@ -1062,6 +1114,7 @@ function renderPrintableEvaluation(evaluationId) {
     examinerName: evaluation.examiners?.name || '',
     passPercentage: exam.pass_percentage,
     techniqueEvaluations: evaluation.technique_evaluations || evaluation.technique_scores || [],
+    adjustmentPoints: evaluationAdjustmentPoints(evaluation),
     submittedAt: evaluation.submitted_at || evaluation.created_at || new Date().toISOString(),
   });
 
@@ -1518,6 +1571,9 @@ init().catch((error) => {
   console.error(error);
   app.innerHTML = `<section class="auth-card"><div class="notice error">${escapeHtml(error.message)}</div></section>`;
 });
+
+
+
 
 
 
