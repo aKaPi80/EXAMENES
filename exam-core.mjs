@@ -180,6 +180,16 @@ export function techniqueSection(item) {
   return typeof item === 'string' ? '' : item?.section || '';
 }
 
+const techniqueSummaries = {
+  'Ura Uchi age geri': 'Tai (ura). A: jodan jun zuki. D: jun uchi age, jun geri.',
+  'Omote Uchi age geri': 'Hiraki (omote). A: jodan jun zuki. D: jun uchi age, jun geri.',
+};
+
+export function techniqueSummary(item) {
+  const explicitSummary = typeof item === 'string' ? '' : item?.summary || item?.technique_summary || '';
+  return explicitSummary || techniqueSummaries[techniqueName(item)] || '';
+}
+
 function expandTechniqueVariants(name) {
   const value = String(name || '').trim();
   const variantMatch = value.match(/\((katate|ryote|morote|ura|omote)\s*(?:&|\/)\s*(katate|ryote|morote|ura|omote)\)/i);
@@ -341,8 +351,8 @@ export function validateExamDraft({ title, grade, techniques, students, examiner
   if (!Array.isArray(students) || students.filter((student) => student.student_name?.trim()).length === 0) {
     errors.push('Agrega al menos un estudiante.');
   }
-  if (!Array.isArray(examiners) || examiners.filter((examiner) => examiner.name?.trim() && validateEmail(examiner.email)).length === 0) {
-    errors.push('Agrega al menos un examinador con email válido.');
+  if (!Array.isArray(examiners) || examiners.filter((examiner) => examiner.name?.trim()).length === 0) {
+    errors.push('Agrega al menos un examinador.');
   }
 
   return { valid: errors.length === 0, errors };
