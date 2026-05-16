@@ -385,3 +385,4 @@ export function getSelectedTechniques(form) {
   }).filter((item) => item.name);
 }
 
+
