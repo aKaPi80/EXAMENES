@@ -180,6 +180,11 @@ export function techniqueSection(item) {
   return typeof item === 'string' ? '' : item?.section || '';
 }
 
+export function techniqueWeight(item) {
+  const weight = Number(typeof item === 'string' ? 1 : item?.weight ?? 1);
+  return Number.isFinite(weight) && weight > 0 ? weight : 1;
+}
+
 const techniqueSummaries = {
   'Ura Uchi age geri': 'Tai (ura). A: jodan jun zuki. D: jun uchi age, jun geri.',
   'Omote Uchi age geri': 'Hiraki (omote). A: jodan jun zuki. D: jun uchi age, jun geri.',
@@ -187,7 +192,8 @@ const techniqueSummaries = {
 
 export function techniqueSummary(item) {
   const explicitSummary = typeof item === 'string' ? '' : item?.summary || item?.technique_summary || '';
-  return explicitSummary || techniqueSummaries[techniqueName(item)] || '';
+  const originalName = typeof item === 'string' ? '' : item?.original_name || '';
+  return explicitSummary || techniqueSummaries[techniqueName(item)] || techniqueSummaries[originalName] || '';
 }
 
 function expandTechniqueVariants(name) {
@@ -294,8 +300,8 @@ export function normalizeToken(bytes = 16) {
 
 export function calculateEvaluationSummary(techniqueEvaluations, passPercentage) {
   const evaluated = techniqueEvaluations.filter((item) => !item.skipped && Number.isFinite(Number(item.score)));
-  const totalScore = evaluated.reduce((sum, item) => sum + Number(item.score || 0), 0);
-  const maxScore = evaluated.length * 10;
+  const totalScore = evaluated.reduce((sum, item) => sum + (Number(item.score || 0) * techniqueWeight(item)), 0);
+  const maxScore = evaluated.reduce((sum, item) => sum + (10 * techniqueWeight(item)), 0);
   const percentage = maxScore ? Math.round((totalScore / maxScore) * 10000) / 100 : 0;
 
   return {
@@ -359,11 +365,21 @@ export function validateExamDraft({ title, grade, techniques, students, examiner
 }
 
 export function getSelectedTechniques(form) {
-  return [...form.querySelectorAll('[data-technique]:checked')].map((input) => ({
-    section: input.dataset.section || '',
-    name: input.dataset.techniqueNameInput
-      ? form.querySelector(input.dataset.techniqueNameInput)?.value.trim() || input.value
-      : input.value,
-  })).filter((item) => item.name);
+  return [...form.querySelectorAll('[data-technique]:checked')].map((input) => {
+    const row = input.closest?.('[data-technique-row]');
+    if (!row && input.dataset.techniqueNameInput) {
+      return {
+        section: input.dataset.section || '',
+        name: form.querySelector(input.dataset.techniqueNameInput)?.value.trim() || input.value,
+      };
+    }
+    const name = row?.querySelector('[data-technique-name]')?.value.trim() || input.value;
+    return {
+      section: input.dataset.section || '',
+      name,
+      original_name: input.dataset.originalName || input.value || name,
+      weight: Number(row?.querySelector('[data-technique-weight]')?.value || input.dataset.weight || 1),
+    };
+  }).filter((item) => item.name);
 }
 
