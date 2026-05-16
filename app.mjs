@@ -31,6 +31,7 @@ const state = {
   examinerTechniqueIndex: 0,
   examinerAnswers: {},
   customTechniqueCounter: 0,
+  techniqueRowCounter: 0,
   techniqueSummaries: new Map(),
 };
 
@@ -476,6 +477,7 @@ function renderTechniquesForGrade() {
   const orderedItems = getOrderedTechniqueItems(grade);
   const previousGohoJuhoItems = getPreviousGohoJuhoTechniqueItems(grade);
   const blocks = groupTechniqueItemsBySection(orderedItems);
+  state.techniqueRowCounter = 0;
   $('#techniquesArea').innerHTML = `
     ${blocks.map(([block, techniques]) => `
       <section class="tech-block">
@@ -490,6 +492,10 @@ function renderTechniquesForGrade() {
           <button class="btn btn-secondary btn-small" id="addCustomTechniqueBtn" type="button">Añadir técnica</button>
         </div>
         <p class="helper-text">Solo se guardarán en este examen concreto.</p>
+        <div class="field technique-position-field">
+          <label for="insertTechniquePosition">Dónde colocar la técnica añadida</label>
+          <select id="insertTechniquePosition"></select>
+        </div>
         ${previousGohoJuhoItems.length ? `
           <div class="previous-technique-picker">
             <div class="field">
@@ -510,6 +516,7 @@ function renderTechniquesForGrade() {
   `;
   $('#addCustomTechniqueBtn')?.addEventListener('click', addCustomTechniqueRow);
   $('#addPreviousTechniqueBtn')?.addEventListener('click', () => addPreviousTechniqueRow(previousGohoJuhoItems));
+  refreshTechniquePositionOptions();
 }
 
 function groupTechniqueItemsBySection(items) {
@@ -537,8 +544,9 @@ function slugifyId(value) {
 function renderTechniqueEditor(item, id) {
   const inputId = `techniqueName-${id}`;
   const grade = $('#examGrade')?.value || '';
+  const rowId = nextTechniqueRowId();
   return `
-    <div class="tech-item technique-editor" data-technique-row>
+    <div class="tech-item technique-editor" data-technique-row data-technique-row-id="${escapeHtml(rowId)}">
       <label class="technique-check">
         <input type="checkbox" data-technique data-section="${escapeHtml(item.section)}" data-grade="${escapeHtml(grade)}" data-original-name="${escapeHtml(item.name)}" value="${escapeHtml(item.name)}" checked />
         <span class="sr-only">Incluir técnica</span>
@@ -552,6 +560,11 @@ function renderTechniqueEditor(item, id) {
       </label>
     </div>
   `;
+}
+
+function nextTechniqueRowId() {
+  state.techniqueRowCounter += 1;
+  return `tech-row-${state.techniqueRowCounter}`;
 }
 
 function addCustomTechniqueRow() {
@@ -586,8 +599,9 @@ function addPreviousTechniqueRow(previousGohoJuhoItems) {
 }
 
 function addTechniqueRow({ inputId, section, grade, name, label, placeholder }) {
+  const rowId = nextTechniqueRowId();
   $('#customTechniquesArea').insertAdjacentHTML('beforeend', `
-    <div class="custom-technique-row" data-technique-row>
+    <div class="custom-technique-row" data-technique-row data-technique-row-id="${escapeHtml(rowId)}">
       <div class="drag-handle" title="Orden" aria-hidden="true">↕</div>
       <input type="checkbox" data-technique data-section="${escapeHtml(section)}" data-grade="${escapeHtml(grade)}" data-original-name="${escapeHtml(name)}" value="${escapeHtml(name)}" checked hidden />
       <div class="field">
@@ -607,12 +621,18 @@ function addTechniqueRow({ inputId, section, grade, name, label, placeholder }) 
       </div>
     </div>
   `);
+  const row = $(`[data-technique-row-id="${CSS.escape(rowId)}"]`);
+  placeTechniqueRow(row, $('#insertTechniquePosition')?.value || '__end__');
   bindCustomTechniqueButtons();
+  refreshTechniquePositionOptions(rowId);
 }
 
 function bindCustomTechniqueButtons() {
   $$('[data-remove-custom-technique]').forEach((button) => {
-    button.onclick = () => button.closest('.custom-technique-row').remove();
+    button.onclick = () => {
+      button.closest('.custom-technique-row').remove();
+      refreshTechniquePositionOptions();
+    };
   });
   $$('[data-move-custom-technique]').forEach((button) => {
     button.onclick = () => moveCustomTechnique(button.closest('.custom-technique-row'), button.dataset.moveCustomTechnique);
@@ -621,12 +641,57 @@ function bindCustomTechniqueButtons() {
 
 function moveCustomTechnique(row, direction) {
   if (!row) return;
-  if (direction === 'up' && row.previousElementSibling) {
-    row.parentElement.insertBefore(row, row.previousElementSibling);
+  const rows = getTechniqueRows();
+  const index = rows.indexOf(row);
+  if (direction === 'up' && index > 0) {
+    rows[index - 1].before(row);
   }
-  if (direction === 'down' && row.nextElementSibling) {
-    row.parentElement.insertBefore(row.nextElementSibling, row);
+  if (direction === 'down' && index >= 0 && index < rows.length - 1) {
+    rows[index + 1].after(row);
   }
+  refreshTechniquePositionOptions(row.dataset.techniqueRowId);
+}
+
+function placeTechniqueRow(row, position) {
+  if (!row) return;
+  if (position === '__start__') {
+    const firstTechnique = getTechniqueRows().find((item) => item !== row);
+    firstTechnique?.before(row);
+    return;
+  }
+  if (position && position !== '__end__') {
+    const target = $(`[data-technique-row-id="${CSS.escape(position)}"]`);
+    if (target && target !== row) {
+      target.after(row);
+    }
+  }
+}
+
+function getTechniqueRows() {
+  return $$('[data-technique-row]', $('#techniquesArea'));
+}
+
+function refreshTechniquePositionOptions(selectedRowId = '') {
+  const select = $('#insertTechniquePosition');
+  if (!select) return;
+
+  const rows = getTechniqueRows().filter((row) => row.dataset.techniqueRowId !== selectedRowId);
+  const options = [
+    ['__end__', 'Al final del examen'],
+    ['__start__', 'Al principio del examen'],
+    ...rows.map((row) => [row.dataset.techniqueRowId, `Después de: ${getTechniqueRowLabel(row)}`]),
+  ];
+  select.innerHTML = options
+    .map(([value, label]) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`)
+    .join('');
+  select.value = selectedRowId ? selectedRowId : '__end__';
+  if (!select.value) select.value = '__end__';
+}
+
+function getTechniqueRowLabel(row) {
+  const section = row.querySelector('[data-technique]')?.dataset.section || 'Técnica';
+  const name = row.querySelector('[data-technique-name]')?.value || row.querySelector('[data-technique]')?.value || 'sin nombre';
+  return `${section} · ${name}`;
 }
 
 function addStudentRow() {
@@ -1453,4 +1518,6 @@ init().catch((error) => {
   console.error(error);
   app.innerHTML = `<section class="auth-card"><div class="notice error">${escapeHtml(error.message)}</div></section>`;
 });
+
+
 
