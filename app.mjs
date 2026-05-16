@@ -31,6 +31,7 @@ const state = {
   examinerTechniqueIndex: 0,
   examinerAnswers: {},
   customTechniqueCounter: 0,
+  techniqueSummaries: new Map(),
 };
 
 const escapeHtml = (value) => String(value ?? '')
@@ -458,7 +459,10 @@ function renderCreateExam() {
     </form>
   `;
 
-  $('#examGrade').addEventListener('change', renderTechniquesForGrade);
+  $('#examGrade').addEventListener('change', async () => {
+    renderTechniquesForGrade();
+    await loadTechniqueSummariesForGrade($('#examGrade').value);
+  });
   $('#passPercentage').addEventListener('input', () => { $('#passLabel').textContent = `${$('#passPercentage').value}%`; });
   $('#addStudentBtn').addEventListener('click', addStudentRow);
   $('#addExaminerBtn').addEventListener('click', addExaminerRow);
@@ -532,10 +536,11 @@ function slugifyId(value) {
 
 function renderTechniqueEditor(item, id) {
   const inputId = `techniqueName-${id}`;
+  const grade = $('#examGrade')?.value || '';
   return `
     <div class="tech-item technique-editor" data-technique-row>
       <label class="technique-check">
-        <input type="checkbox" data-technique data-section="${escapeHtml(item.section)}" data-original-name="${escapeHtml(item.name)}" value="${escapeHtml(item.name)}" checked />
+        <input type="checkbox" data-technique data-section="${escapeHtml(item.section)}" data-grade="${escapeHtml(grade)}" data-original-name="${escapeHtml(item.name)}" value="${escapeHtml(item.name)}" checked />
         <span class="sr-only">Incluir técnica</span>
       </label>
       <input id="${escapeHtml(inputId)}" class="technique-name-input" data-technique-name value="${escapeHtml(item.name)}" aria-label="Nombre de técnica" />
@@ -555,6 +560,7 @@ function addCustomTechniqueRow() {
   addTechniqueRow({
     inputId: `customTechniqueName-${index}`,
     section: 'Técnicas añadidas',
+    grade: $('#examGrade')?.value || '',
     name: '',
     label: 'Nombre de técnica',
     placeholder: 'Ej. Defensa especial para este examen',
@@ -571,6 +577,7 @@ function addPreviousTechniqueRow(previousGohoJuhoItems) {
   addTechniqueRow({
     inputId: `customTechniqueName-${index}`,
     section: `Repaso ${item.gradeLabel} · ${item.section}`,
+    grade: item.grade,
     name: item.name,
     label: 'Técnica añadida desde grado anterior',
     placeholder: '',
@@ -578,11 +585,11 @@ function addPreviousTechniqueRow(previousGohoJuhoItems) {
   select.value = '';
 }
 
-function addTechniqueRow({ inputId, section, name, label, placeholder }) {
+function addTechniqueRow({ inputId, section, grade, name, label, placeholder }) {
   $('#customTechniquesArea').insertAdjacentHTML('beforeend', `
     <div class="custom-technique-row" data-technique-row>
       <div class="drag-handle" title="Orden" aria-hidden="true">↕</div>
-      <input type="checkbox" data-technique data-section="${escapeHtml(section)}" data-original-name="${escapeHtml(name)}" value="${escapeHtml(name)}" checked hidden />
+      <input type="checkbox" data-technique data-section="${escapeHtml(section)}" data-grade="${escapeHtml(grade)}" data-original-name="${escapeHtml(name)}" value="${escapeHtml(name)}" checked hidden />
       <div class="field">
         <label for="${escapeHtml(inputId)}">${escapeHtml(label)}</label>
         <input id="${escapeHtml(inputId)}" class="technique-name-input" data-technique-name value="${escapeHtml(name)}" placeholder="${escapeHtml(placeholder)}" />
@@ -689,9 +696,54 @@ function collectDraft() {
   };
 }
 
+async function loadTechniqueSummariesForGrade(grade) {
+  if (!grade) {
+    state.techniqueSummaries = new Map();
+    return;
+  }
+
+  const gradeIds = grades.map(([id]) => id);
+  const gradeIndex = gradeIds.indexOf(grade);
+  const relevantGrades = gradeIndex >= 0 ? gradeIds.slice(0, gradeIndex + 1) : [grade];
+  const { data, error } = await supabase
+    .from('technique_summaries')
+    .select('canonical_name, grade, summary, summary_en, summary_es')
+    .in('grade', relevantGrades);
+
+  if (error) {
+    state.techniqueSummaries = new Map();
+    console.warn('No se pudieron cargar los resúmenes de técnicas:', error.message);
+    return;
+  }
+
+  const summaries = new Map();
+  (data || []).forEach((item) => {
+    const summary = item.summary_es || item.summary_en || item.summary || '';
+    summaries.set(`${item.grade}|${item.canonical_name}`, summary);
+    if (!summaries.has(item.canonical_name)) summaries.set(item.canonical_name, summary);
+  });
+  state.techniqueSummaries = summaries;
+}
+
+function addSummariesToTechniques(techniques) {
+  return techniques.map((technique) => {
+    const sourceGrade = technique.source_grade || '';
+    const summary = technique.summary
+      || state.techniqueSummaries.get(`${sourceGrade}|${technique.original_name}`)
+      || state.techniqueSummaries.get(`${sourceGrade}|${technique.name}`)
+      || state.techniqueSummaries.get(technique.original_name)
+      || state.techniqueSummaries.get(technique.name)
+      || '';
+
+    return { ...technique, summary };
+  });
+}
+
 async function createExam(event) {
   event.preventDefault();
   const draft = collectDraft();
+  await loadTechniqueSummariesForGrade(draft.grade);
+  draft.techniques = addSummariesToTechniques(draft.techniques);
   const validation = validateExamDraft(draft);
 
   if (!validation.valid) {
@@ -1401,7 +1453,4 @@ init().catch((error) => {
   console.error(error);
   app.innerHTML = `<section class="auth-card"><div class="notice error">${escapeHtml(error.message)}</div></section>`;
 });
-
-
-
 
