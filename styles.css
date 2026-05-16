@@ -264,6 +264,10 @@ button, input, select, textarea { font: inherit; }
   align-items: flex-start;
 }
 
+.technique-check {
+  display: inline-flex;
+}
+
 .technique-editor input[type="checkbox"] {
   flex: 0 0 auto;
   margin-top: 10px;
@@ -281,6 +285,24 @@ button, input, select, textarea { font: inherit; }
 .technique-name-input:focus {
   outline: 3px solid rgba(25, 118, 210, 0.16);
   border-color: var(--blue);
+}
+
+.technique-weight {
+  display: grid;
+  gap: 5px;
+  min-width: 76px;
+  color: #263547;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.technique-weight select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: white;
+  color: var(--ink);
+  padding: 9px 8px;
 }
 
 .tech-block-head {
@@ -322,9 +344,27 @@ button, input, select, textarea { font: inherit; }
 
 .custom-technique-row {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr 76px auto;
   gap: 10px;
   align-items: end;
+}
+
+.custom-technique-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .row-card {
@@ -430,6 +470,11 @@ button, input, select, textarea { font: inherit; }
 
 .technique-stage p { margin: 0 0 4px; color: var(--muted); font-weight: 800; }
 .technique-stage h2 { margin: 0; color: var(--blue-dark); }
+
+.technique-stage .technique-weight-label {
+  margin-top: 6px;
+  color: #164773;
+}
 
 .technique-summary {
   margin-top: 10px;
