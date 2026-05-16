@@ -388,6 +388,47 @@ button, input, select, textarea { font: inherit; }
   color: var(--blue-dark);
 }
 
+.sheet-student-picker {
+  margin: 0 0 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+
+.sheet-student-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.sheet-student-option {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: 9px;
+  align-items: start;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+}
+
+.sheet-student-option input {
+  margin-top: 3px;
+  accent-color: var(--blue);
+}
+
+.sheet-student-option strong,
+.sheet-student-option small {
+  display: block;
+}
+
+.sheet-student-option small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
