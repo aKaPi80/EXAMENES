@@ -377,6 +377,7 @@ export function getSelectedTechniques(form) {
     const originalName = input.dataset.originalName || input.value || name;
     return {
       section: input.dataset.section || '',
+      source_grade: input.dataset.grade || '',
       name,
       original_name: originalName,
       weight: Number(row?.querySelector('[data-technique-weight]')?.value || input.dataset.weight || 1),
@@ -384,5 +385,4 @@ export function getSelectedTechniques(form) {
     };
   }).filter((item) => item.name);
 }
-
 
