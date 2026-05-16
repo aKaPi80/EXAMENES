@@ -9,6 +9,7 @@
   getSelectedTechniques,
   getOrderedTechniqueItems,
   gradeLabel,
+  gradeSheetLabel,
   grades,
   normalizeToken,
   syllabusData,
@@ -445,8 +446,12 @@ function renderCreateExam() {
           <h2>Estudiantes</h2>
           <p>Ordena la salida al tatami con el número de evaluación.</p>
         </div>
-        <button class="btn btn-secondary" id="addStudentBtn" type="button">Añadir estudiante</button>
+        <div class="btn-row">
+          <button class="btn btn-secondary" id="loadSheetStudentsBtn" type="button">Cargar desde base de datos</button>
+          <button class="btn btn-secondary" id="addStudentBtn" type="button">Añadir estudiante</button>
+        </div>
       </div>
+      <div id="sheetStudentsArea"></div>
       <div id="studentsArea" class="card-list"></div>
       <div class="section-head" style="margin-top:22px">
         <div>
@@ -462,9 +467,11 @@ function renderCreateExam() {
 
   $('#examGrade').addEventListener('change', async () => {
     renderTechniquesForGrade();
+    $('#sheetStudentsArea').innerHTML = '';
     await loadTechniqueSummariesForGrade($('#examGrade').value);
   });
   $('#passPercentage').addEventListener('input', () => { $('#passLabel').textContent = `${$('#passPercentage').value}%`; });
+  $('#loadSheetStudentsBtn').addEventListener('click', loadSheetStudentsForExam);
   $('#addStudentBtn').addEventListener('click', addStudentRow);
   $('#addExaminerBtn').addEventListener('click', addExaminerRow);
   $('#examForm').addEventListener('submit', createExam);
@@ -694,34 +701,228 @@ function getTechniqueRowLabel(row) {
   return `${section} · ${name}`;
 }
 
-function addStudentRow() {
+function addStudentRow(student = {}) {
   const index = $$('.student-row').length + 1;
+  const name = student.student_name || student.name || student.nombre || '';
+  const belt = normalizeStudentBelt(student.student_belt_color || student.belt || student.cinturon || student.gradoActual || '');
+  const order = Number(student.order_number || student.orden || index);
   $('#studentsArea').insertAdjacentHTML('beforeend', `
     <div class="row-card student-row">
       <div class="field">
         <label>Nombre</label>
-        <input class="student-name" required />
+        <input class="student-name" value="${escapeHtml(name)}" required />
       </div>
       <div class="field">
         <label>Cinturón actual</label>
         <select class="student-belt">
-          <option>Blanco (Minarai)</option>
-          <option>Amarillo</option>
-          <option>Naranja</option>
-          <option>Verde</option>
-          <option>Azul</option>
-          <option>Marrón</option>
-          <option>Negro</option>
+          ${studentBeltOptions(belt)}
         </select>
       </div>
       <div class="field">
         <label>Orden</label>
-        <input class="student-order" type="number" min="1" value="${index}" />
+        <input class="student-order" type="number" min="1" value="${escapeHtml(order)}" />
       </div>
       <button class="btn btn-danger btn-small" type="button" data-remove-row>Eliminar</button>
     </div>
   `);
   bindRemoveButtons();
+}
+
+function studentBeltOptions(selected = '') {
+  const belts = ['Blanco (Minarai)', 'Amarillo', 'Naranja', 'Verde', 'Azul', 'Marrón', 'Negro'];
+  const normalized = normalizeStudentBelt(selected);
+  return belts.map((belt) => `<option${belt === normalized ? ' selected' : ''}>${escapeHtml(belt)}</option>`).join('');
+}
+
+function normalizeStudentBelt(value) {
+  const raw = String(value || '').trim();
+  const simple = raw
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+  if (!simple) return '';
+  if (simple.includes('blanco') || simple.includes('minarai')) return 'Blanco (Minarai)';
+  if (simple.includes('amarillo') || simple.includes('5 kyu') || simple.includes('5kyu')) return 'Amarillo';
+  if (simple.includes('naranja') || simple.includes('4 kyu') || simple.includes('4kyu')) return 'Naranja';
+  if (simple.includes('verde') || simple.includes('3 kyu') || simple.includes('3kyu')) return 'Verde';
+  if (simple.includes('azul') || simple.includes('2 kyu') || simple.includes('2kyu')) return 'Azul';
+  if (simple.includes('marron') || simple.includes('1 kyu') || simple.includes('1kyu')) return 'Marrón';
+  if (simple.includes('negro') || simple.includes('dan')) return 'Negro';
+  return raw;
+}
+
+function currentGradeForTargetGrade(targetGrade) {
+  const currentGrades = {
+    '5kyu': 'MINARAI',
+    '4kyu': '5 KYU',
+    '3kyu': '4 KYU',
+    '2kyu': '3 KYU',
+    '1kyu': '2 KYU',
+    shodan: '1 KYU',
+    nidan: '1 DAN',
+    sandan: '2 DAN',
+    yondan: '3 DAN',
+    godan: '4 DAN',
+  };
+  return currentGrades[targetGrade] || '';
+}
+
+function currentBeltForTargetGrade(targetGrade) {
+  const belts = {
+    '5kyu': 'Blanco (Minarai)',
+    '4kyu': 'Amarillo',
+    '3kyu': 'Naranja',
+    '2kyu': 'Verde',
+    '1kyu': 'Azul',
+    shodan: 'Marrón',
+    nidan: 'Negro',
+    sandan: 'Negro',
+    yondan: 'Negro',
+    godan: 'Negro',
+  };
+  return belts[targetGrade] || '';
+}
+
+async function loadSheetStudentsForExam() {
+  const grade = $('#examGrade')?.value || '';
+  if (!grade) {
+    showErrors('Selecciona primero el grado objetivo del examen.');
+    return;
+  }
+
+  const savedToken = localStorage.getItem('skbcSheetToken') || '';
+  const token = (prompt('Pega el token configurado en Apps Script para leer alumnos:', savedToken) || '').trim();
+  if (!token) return;
+  localStorage.setItem('skbcSheetToken', token);
+
+  const area = $('#sheetStudentsArea');
+  area.innerHTML = '<div class="notice">Cargando alumnos desde la base de datos...</div>';
+
+  try {
+    const payload = await fetchSheetStudentsJsonp({
+      token,
+      targetGrade: grade,
+      targetGradeLabel: gradeSheetLabel(grade),
+      currentGrade: currentGradeForTargetGrade(grade),
+    });
+    const students = Array.isArray(payload.alumnos) ? payload.alumnos : Array.isArray(payload.students) ? payload.students : [];
+    renderSheetStudentPicker(students, grade);
+  } catch (error) {
+    area.innerHTML = `<div class="notice error">${escapeHtml(error.message || 'No se pudieron cargar los alumnos.')}</div>`;
+  }
+}
+
+function fetchSheetStudentsJsonp({ token, targetGrade, targetGradeLabel, currentGrade }) {
+  return new Promise((resolve, reject) => {
+    const callbackName = `skbcStudentsCallback_${normalizeToken(8)}`;
+    const url = new URL(EXAM_SHEET_WEBAPP_URL);
+    url.searchParams.set('accion', 'LISTAR_ALUMNOS_EXAMEN_WEB');
+    url.searchParams.set('token', token);
+    url.searchParams.set('gradoObjetivo', targetGradeLabel);
+    url.searchParams.set('gradoObjetivoId', targetGrade);
+    url.searchParams.set('gradoActual', currentGrade);
+    url.searchParams.set('callback', callbackName);
+
+    const script = document.createElement('script');
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      reject(new Error('La base de datos tardó demasiado en responder.'));
+    }, 15000);
+
+    function cleanup() {
+      window.clearTimeout(timeout);
+      script.remove();
+      delete window[callbackName];
+    }
+
+    window[callbackName] = (payload) => {
+      cleanup();
+      if (!payload?.ok) {
+        reject(new Error(payload?.error || 'Apps Script no devolvió alumnos.'));
+        return;
+      }
+      resolve(payload);
+    };
+
+    script.onerror = () => {
+      cleanup();
+      reject(new Error('No se pudo conectar con Apps Script.'));
+    };
+    script.src = url.toString();
+    document.body.appendChild(script);
+  });
+}
+
+function renderSheetStudentPicker(students, targetGrade) {
+  const area = $('#sheetStudentsArea');
+  if (!students.length) {
+    area.innerHTML = `<div class="notice warning">No se encontraron alumnos para ${escapeHtml(currentGradeForTargetGrade(targetGrade)) || escapeHtml(gradeSheetLabel(targetGrade))}.</div>`;
+    return;
+  }
+
+  area.innerHTML = `
+    <section class="sheet-student-picker">
+      <div class="tech-block-head">
+        <div>
+          <h3>Alumnos encontrados</h3>
+          <p class="helper-text">Selecciona los alumnos que se presentan a este examen.</p>
+        </div>
+        <button class="btn btn-primary btn-small" id="addSelectedSheetStudents" type="button">Añadir seleccionados</button>
+      </div>
+      <div class="sheet-student-list">
+        ${students.map((student, index) => {
+          const name = sheetStudentName(student);
+          const belt = normalizeStudentBelt(student.cinturon || student.belt || student.gradoActual || currentBeltForTargetGrade(targetGrade));
+          return `
+            <label class="sheet-student-option">
+              <input type="checkbox" data-sheet-student-index="${index}" checked />
+              <span>
+                <strong>${escapeHtml(name || 'Alumno sin nombre')}</strong>
+                <small>${escapeHtml(belt || currentBeltForTargetGrade(targetGrade))}</small>
+              </span>
+            </label>
+          `;
+        }).join('')}
+      </div>
+    </section>
+  `;
+
+  $('#addSelectedSheetStudents').addEventListener('click', () => addSelectedSheetStudents(students, targetGrade));
+}
+
+function sheetStudentName(student) {
+  return String(student.nombre || student.name || student.alumno || student.student_name || '').trim();
+}
+
+function addSelectedSheetStudents(students, targetGrade) {
+  const existingNames = new Set($$('.student-name').map((input) => normalizeStudentName(input.value)));
+  const selected = $$('[data-sheet-student-index]:checked', $('#sheetStudentsArea'))
+    .map((input) => students[Number(input.dataset.sheetStudentIndex)])
+    .filter(Boolean);
+
+  let added = 0;
+  selected.forEach((student) => {
+    const name = sheetStudentName(student);
+    if (!name || existingNames.has(normalizeStudentName(name))) return;
+    existingNames.add(normalizeStudentName(name));
+    addStudentRow({
+      student_name: name,
+      student_belt_color: student.cinturon || student.belt || student.gradoActual || currentBeltForTargetGrade(targetGrade),
+    });
+    added += 1;
+  });
+
+  notify(added ? `${added} alumno(s) añadidos al examen.` : 'No se añadió ningún alumno nuevo.', added ? 'success' : 'warning');
+}
+
+function normalizeStudentName(value) {
+  return String(value || '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
 }
 
 function addExaminerRow() {
