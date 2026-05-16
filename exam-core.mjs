@@ -298,14 +298,18 @@ export function normalizeToken(bytes = 16) {
   return Array.from({ length: bytes * 2 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
 }
 
-export function calculateEvaluationSummary(techniqueEvaluations, passPercentage) {
+export function calculateEvaluationSummary(techniqueEvaluations, passPercentage, adjustmentPoints = 0) {
   const evaluated = techniqueEvaluations.filter((item) => !item.skipped && Number.isFinite(Number(item.score)));
-  const totalScore = evaluated.reduce((sum, item) => sum + (Number(item.score || 0) * techniqueWeight(item)), 0);
+  const baseScore = evaluated.reduce((sum, item) => sum + (Number(item.score || 0) * techniqueWeight(item)), 0);
   const maxScore = evaluated.reduce((sum, item) => sum + (10 * techniqueWeight(item)), 0);
+  const adjustedScore = baseScore + Number(adjustmentPoints || 0);
+  const totalScore = maxScore ? Math.min(maxScore, Math.max(0, adjustedScore)) : 0;
   const percentage = maxScore ? Math.round((totalScore / maxScore) * 10000) / 100 : 0;
 
   return {
     totalScore,
+    baseScore,
+    adjustmentPoints: Number(adjustmentPoints || 0),
     maxScore,
     percentage,
     passed: percentage >= Number(passPercentage || 0),
@@ -321,10 +325,11 @@ export function buildPrintableEvaluation({
   examinerName,
   passPercentage,
   techniqueEvaluations,
+  adjustmentPoints = 0,
   submittedAt,
 }) {
   const items = techniqueEvaluations || [];
-  const summary = calculateEvaluationSummary(items, passPercentage);
+  const summary = calculateEvaluationSummary(items, passPercentage, adjustmentPoints);
   const skippedCount = items.filter((item) => item.skipped).length;
 
   return {
