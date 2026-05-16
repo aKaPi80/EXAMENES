@@ -334,7 +334,7 @@ button, input, select, textarea { font: inherit; }
   align-items: end;
 }
 
-.examiner-row { grid-template-columns: 1fr 1.2fr auto; }
+.examiner-row { grid-template-columns: 1fr auto; }
 .logo-drop { cursor: pointer; text-align: center; border-style: dashed; }
 .logo-drop img { max-width: 110px; max-height: 110px; display: block; margin: 0 auto 10px; border-radius: 8px; }
 
@@ -430,6 +430,15 @@ button, input, select, textarea { font: inherit; }
 
 .technique-stage p { margin: 0 0 4px; color: var(--muted); font-weight: 800; }
 .technique-stage h2 { margin: 0; color: var(--blue-dark); }
+
+.technique-summary {
+  margin-top: 10px;
+  max-width: 680px;
+  color: #263547;
+  line-height: 1.45;
+  font-weight: 700;
+  white-space: pre-wrap;
+}
 
 .empty {
   padding: 26px;
