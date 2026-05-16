@@ -374,11 +374,13 @@ export function getSelectedTechniques(form) {
       };
     }
     const name = row?.querySelector('[data-technique-name]')?.value.trim() || input.value;
+    const originalName = input.dataset.originalName || input.value || name;
     return {
       section: input.dataset.section || '',
       name,
-      original_name: input.dataset.originalName || input.value || name,
+      original_name: originalName,
       weight: Number(row?.querySelector('[data-technique-weight]')?.value || input.dataset.weight || 1),
+      summary: techniqueSummary({ name, original_name: originalName }),
     };
   }).filter((item) => item.name);
 }
