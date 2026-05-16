@@ -1,4 +1,4 @@
-﻿﻿﻿import {
+﻿﻿﻿﻿import {
   EXAM_SHEET_WEBAPP_URL,
   SUPABASE_KEY,
   SUPABASE_URL,
@@ -533,10 +533,19 @@ function slugifyId(value) {
 function renderTechniqueEditor(item, id) {
   const inputId = `techniqueName-${id}`;
   return `
-    <label class="tech-item technique-editor">
-      <input type="checkbox" data-technique data-section="${escapeHtml(item.section)}" data-technique-name-input="#${escapeHtml(inputId)}" value="${escapeHtml(item.name)}" checked />
-      <input id="${escapeHtml(inputId)}" class="technique-name-input" value="${escapeHtml(item.name)}" aria-label="Nombre de técnica" />
-    </label>
+    <div class="tech-item technique-editor" data-technique-row>
+      <label class="technique-check">
+        <input type="checkbox" data-technique data-section="${escapeHtml(item.section)}" data-original-name="${escapeHtml(item.name)}" value="${escapeHtml(item.name)}" checked />
+        <span class="sr-only">Incluir técnica</span>
+      </label>
+      <input id="${escapeHtml(inputId)}" class="technique-name-input" data-technique-name value="${escapeHtml(item.name)}" aria-label="Nombre de técnica" />
+      <label class="technique-weight">
+        <span>Peso</span>
+        <select data-technique-weight aria-label="Peso de técnica">
+          ${[1, 2, 3, 4, 5].map((weight) => `<option value="${weight}">${weight}</option>`).join('')}
+        </select>
+      </label>
+    </div>
   `;
 }
 
@@ -571,22 +580,45 @@ function addPreviousTechniqueRow(previousGohoJuhoItems) {
 
 function addTechniqueRow({ inputId, section, name, label, placeholder }) {
   $('#customTechniquesArea').insertAdjacentHTML('beforeend', `
-    <div class="custom-technique-row">
-      <input type="checkbox" data-technique data-section="${escapeHtml(section)}" data-technique-name-input="#${escapeHtml(inputId)}" value="${escapeHtml(name)}" checked hidden />
+    <div class="custom-technique-row" data-technique-row>
+      <input type="checkbox" data-technique data-section="${escapeHtml(section)}" data-original-name="${escapeHtml(name)}" value="${escapeHtml(name)}" checked hidden />
       <div class="field">
         <label for="${escapeHtml(inputId)}">${escapeHtml(label)}</label>
-        <input id="${escapeHtml(inputId)}" class="technique-name-input" value="${escapeHtml(name)}" placeholder="${escapeHtml(placeholder)}" />
+        <input id="${escapeHtml(inputId)}" class="technique-name-input" data-technique-name value="${escapeHtml(name)}" placeholder="${escapeHtml(placeholder)}" />
       </div>
-      <button class="btn btn-danger btn-small" type="button" data-remove-custom-technique>Eliminar</button>
+      <label class="technique-weight">
+        <span>Peso</span>
+        <select data-technique-weight aria-label="Peso de técnica">
+          ${[1, 2, 3, 4, 5].map((weight) => `<option value="${weight}">${weight}</option>`).join('')}
+        </select>
+      </label>
+      <div class="custom-technique-actions">
+        <button class="btn btn-secondary btn-small" type="button" data-move-custom-technique="up">Subir</button>
+        <button class="btn btn-secondary btn-small" type="button" data-move-custom-technique="down">Bajar</button>
+        <button class="btn btn-danger btn-small" type="button" data-remove-custom-technique>Eliminar</button>
+      </div>
     </div>
   `);
-  bindCustomTechniqueRemoveButtons();
+  bindCustomTechniqueButtons();
 }
 
-function bindCustomTechniqueRemoveButtons() {
+function bindCustomTechniqueButtons() {
   $$('[data-remove-custom-technique]').forEach((button) => {
     button.onclick = () => button.closest('.custom-technique-row').remove();
   });
+  $$('[data-move-custom-technique]').forEach((button) => {
+    button.onclick = () => moveCustomTechnique(button.closest('.custom-technique-row'), button.dataset.moveCustomTechnique);
+  });
+}
+
+function moveCustomTechnique(row, direction) {
+  if (!row) return;
+  if (direction === 'up' && row.previousElementSibling) {
+    row.parentElement.insertBefore(row, row.previousElementSibling);
+  }
+  if (direction === 'down' && row.nextElementSibling) {
+    row.parentElement.insertBefore(row.nextElementSibling, row);
+  }
 }
 
 function addStudentRow() {
@@ -1179,6 +1211,7 @@ async function renderExaminerApp(token) {
     state.examinerAnswers[student.id] = (data.exam.techniques || []).map((technique) => ({
       technique_name: techniqueName(technique),
       section: techniqueSection(technique),
+      weight: technique.weight || 1,
       score: null,
       skipped: false,
       notes: '',
@@ -1195,9 +1228,11 @@ function renderExaminerForm() {
   const currentTechnique = techniques[techniqueIndex];
   const currentTechniqueName = techniqueName(currentTechnique);
   const currentTechniqueSummary = techniqueSummary(currentTechnique);
+  const currentTechniqueWeight = currentTechnique?.weight || 1;
   const currentSection = techniqueSection(currentTechnique) || 'Técnicas';
   const previousSection = techniqueIndex > 0 ? techniqueSection(techniques[techniqueIndex - 1]) : '';
   const sectionChanged = techniqueIndex === 0 || currentSection !== previousSection;
+  const sectionLead = techniqueIndex === 0 ? 'Empezamos con' : 'Seguimos con';
   const progress = Math.round(((techniqueIndex + 1) / techniques.length) * 100);
   const completedForTechnique = payload.students.filter((student) => answerComplete(state.examinerAnswers[student.id][techniqueIndex])).length;
 
@@ -1212,11 +1247,12 @@ function renderExaminerForm() {
         <span class="status active">Técnica ${techniqueIndex + 1} de ${techniques.length}</span>
       </div>
       <div class="progress"><span style="width:${progress}%"></span></div>
-      ${sectionChanged ? `<div class="section-break">Empezamos con la sección de ${escapeHtml(currentSection)}</div>` : ''}
+      ${sectionChanged ? `<div class="section-break">${sectionLead} la sección de ${escapeHtml(currentSection)}</div>` : ''}
       <div class="technique-stage">
         <div>
           <p>Técnica actual</p>
           <h2>${escapeHtml(currentTechniqueName)}</h2>
+          <p class="technique-weight-label">Peso ${escapeHtml(currentTechniqueWeight)}</p>
           ${currentTechniqueSummary ? `<div class="technique-summary">${escapeHtml(currentTechniqueSummary)}</div>` : ''}
         </div>
         <span class="status ${completedForTechnique === payload.students.length ? 'passed' : 'draft'}">${completedForTechnique}/${payload.students.length} alumnos</span>
@@ -1349,3 +1385,4 @@ init().catch((error) => {
   console.error(error);
   app.innerHTML = `<section class="auth-card"><div class="notice error">${escapeHtml(error.message)}</div></section>`;
 });
+
