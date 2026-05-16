@@ -252,6 +252,26 @@ export function getOrderedTechniqueItems(grade) {
   return ordered;
 }
 
+export function getPreviousGohoJuhoTechniqueItems(grade) {
+  const gradeIndex = grades.findIndex(([id]) => id === grade);
+  if (gradeIndex <= 0) return [];
+
+  return grades.slice(0, gradeIndex).flatMap(([previousGrade, previousGradeLabel]) => {
+    const blocks = syllabusData[previousGrade] || {};
+    return ['Goho', 'Juho'].flatMap((sectionName) => {
+      const techniques = blocks[sectionName] || [];
+      return techniques.flatMap((name) =>
+        expandTechniqueVariants(name).map((expandedName) => ({
+          grade: previousGrade,
+          gradeLabel: previousGradeLabel,
+          section: sectionName,
+          name: expandedName,
+        }))
+      );
+    });
+  });
+}
+
 export function normalizeToken(bytes = 16) {
   const cryptoApi = globalThis.crypto;
   if (cryptoApi?.getRandomValues) {
@@ -336,3 +356,4 @@ export function getSelectedTechniques(form) {
       : input.value,
   })).filter((item) => item.name);
 }
+
