@@ -344,9 +344,25 @@ button, input, select, textarea { font: inherit; }
 
 .custom-technique-row {
   display: grid;
-  grid-template-columns: 1fr 76px auto;
+  grid-template-columns: 26px 1fr 76px auto;
   gap: 10px;
   align-items: end;
+}
+
+.custom-technique-row.dragging {
+  opacity: 0.55;
+}
+
+.drag-handle {
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  min-height: 42px;
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: grab;
+  user-select: none;
 }
 
 .custom-technique-actions {
@@ -392,6 +408,14 @@ button, input, select, textarea { font: inherit; }
   word-break: break-all;
   color: var(--blue-dark);
   font-size: 0.9rem;
+}
+
+.link-copy-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: stretch;
+  margin-bottom: 12px;
 }
 
 .examiner-card {
@@ -608,7 +632,7 @@ button, input, select, textarea { font: inherit; }
   .topbar, .section-head, .examiner-header { flex-direction: column; align-items: stretch; }
   .tabs { grid-template-columns: repeat(2, 1fr); }
   .grid-2, .grid-3, .details-layout, .score-row { grid-template-columns: 1fr; }
-  .row-card, .examiner-row, .custom-technique-row, .previous-technique-picker { grid-template-columns: 1fr; }
+  .row-card, .examiner-row, .custom-technique-row, .previous-technique-picker, .link-copy-row { grid-template-columns: 1fr; }
   .score-options { grid-template-columns: repeat(2, 1fr); }
   .tech-block-head { align-items: stretch; flex-direction: column; }
   .technique-stage { flex-direction: column; align-items: flex-start; }
