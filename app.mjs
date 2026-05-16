@@ -580,7 +580,8 @@ function addPreviousTechniqueRow(previousGohoJuhoItems) {
 
 function addTechniqueRow({ inputId, section, name, label, placeholder }) {
   $('#customTechniquesArea').insertAdjacentHTML('beforeend', `
-    <div class="custom-technique-row" data-technique-row>
+    <div class="custom-technique-row" data-technique-row draggable="true">
+      <div class="drag-handle" title="Arrastra para ordenar" aria-hidden="true">↕</div>
       <input type="checkbox" data-technique data-section="${escapeHtml(section)}" data-original-name="${escapeHtml(name)}" value="${escapeHtml(name)}" checked hidden />
       <div class="field">
         <label for="${escapeHtml(inputId)}">${escapeHtml(label)}</label>
@@ -593,32 +594,43 @@ function addTechniqueRow({ inputId, section, name, label, placeholder }) {
         </select>
       </label>
       <div class="custom-technique-actions">
-        <button class="btn btn-secondary btn-small" type="button" data-move-custom-technique="up">Subir</button>
-        <button class="btn btn-secondary btn-small" type="button" data-move-custom-technique="down">Bajar</button>
         <button class="btn btn-danger btn-small" type="button" data-remove-custom-technique>Eliminar</button>
       </div>
     </div>
   `);
   bindCustomTechniqueButtons();
+  bindCustomTechniqueDrag();
 }
 
 function bindCustomTechniqueButtons() {
   $$('[data-remove-custom-technique]').forEach((button) => {
     button.onclick = () => button.closest('.custom-technique-row').remove();
   });
-  $$('[data-move-custom-technique]').forEach((button) => {
-    button.onclick = () => moveCustomTechnique(button.closest('.custom-technique-row'), button.dataset.moveCustomTechnique);
-  });
 }
 
-function moveCustomTechnique(row, direction) {
-  if (!row) return;
-  if (direction === 'up' && row.previousElementSibling) {
-    row.parentElement.insertBefore(row, row.previousElementSibling);
-  }
-  if (direction === 'down' && row.nextElementSibling) {
-    row.parentElement.insertBefore(row.nextElementSibling, row);
-  }
+function bindCustomTechniqueDrag() {
+  const area = $('#customTechniquesArea');
+  if (!area) return;
+
+  $$('.custom-technique-row', area).forEach((row) => {
+    row.ondragstart = (event) => {
+      row.classList.add('dragging');
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', '');
+    };
+    row.ondragend = () => row.classList.remove('dragging');
+  });
+
+  area.ondragover = (event) => {
+    event.preventDefault();
+    const dragging = $('.custom-technique-row.dragging', area);
+    const target = event.target.closest?.('.custom-technique-row');
+    if (!dragging || !target || dragging === target) return;
+
+    const targetRect = target.getBoundingClientRect();
+    const insertAfter = event.clientY > targetRect.top + (targetRect.height / 2);
+    area.insertBefore(dragging, insertAfter ? target.nextSibling : target);
+  };
 }
 
 function addStudentRow() {
@@ -817,7 +829,10 @@ function renderExamDetails() {
           <h3>Enlaces de examinador</h3>
           ${exam.links.map((link) => `
             <p><strong>${escapeHtml(link.examiners?.name || 'Examinador')}</strong></p>
-            <div class="link-box">${escapeHtml(link.access_url)}</div>
+            <div class="link-copy-row">
+              <div class="link-box">${escapeHtml(link.access_url)}</div>
+              <button class="btn btn-secondary btn-small copy-link" type="button" data-url="${escapeHtml(link.access_url)}">Copiar</button>
+            </div>
           `).join('') || '<p>No hay examinadores.</p>'}
         </section>
       </aside>
@@ -831,9 +846,21 @@ function renderExamDetails() {
   `;
   $('#backToExams').addEventListener('click', renderExamList);
   $('#registerPassed').addEventListener('click', registerPassedStudentsInSheet);
+  $$('.copy-link').forEach((button) => {
+    button.addEventListener('click', () => copyLink(button.dataset.url));
+  });
   $$('.print-evaluation').forEach((button) => {
     button.addEventListener('click', () => renderPrintableEvaluation(button.dataset.evaluationId));
   });
+}
+
+async function copyLink(url) {
+  try {
+    await navigator.clipboard.writeText(url);
+    notify('Enlace copiado.');
+  } catch {
+    showErrors('No se pudo copiar automáticamente. Selecciona el enlace manualmente.');
+  }
 }
 
 function renderEvaluationCard(evaluation) {
@@ -1227,7 +1254,7 @@ function renderExaminerForm() {
   const techniqueIndex = state.examinerTechniqueIndex;
   const currentTechnique = techniques[techniqueIndex];
   const currentTechniqueName = techniqueName(currentTechnique);
-  const currentTechniqueSummary = techniqueSummary(currentTechnique);
+  const currentTechniqueSummary = techniqueSummary(currentTechnique) || 'Resumen pendiente de definir para esta técnica.';
   const currentTechniqueWeight = currentTechnique?.weight || 1;
   const currentSection = techniqueSection(currentTechnique) || 'Técnicas';
   const previousSection = techniqueIndex > 0 ? techniqueSection(techniques[techniqueIndex - 1]) : '';
@@ -1385,4 +1412,6 @@ init().catch((error) => {
   console.error(error);
   app.innerHTML = `<section class="auth-card"><div class="notice error">${escapeHtml(error.message)}</div></section>`;
 });
+
+
 
