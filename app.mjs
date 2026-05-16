@@ -1,4 +1,4 @@
-﻿﻿import {
+﻿﻿﻿import {
   EXAM_SHEET_WEBAPP_URL,
   SUPABASE_KEY,
   SUPABASE_URL,
@@ -14,7 +14,7 @@
   syllabusData,
   techniqueName,
   techniqueSection,
-  validateEmail,
+  techniqueSummary,
   validateExamDraft,
 } from './exam-core.mjs';
 
@@ -626,10 +626,6 @@ function addExaminerRow() {
         <label>Nombre</label>
         <input class="examiner-name" required />
       </div>
-      <div class="field">
-        <label>Email</label>
-        <input class="examiner-email" type="email" required />
-      </div>
       <button class="btn btn-danger btn-small" type="button" data-remove-row>Eliminar</button>
     </div>
   `);
@@ -656,8 +652,7 @@ function collectDraft() {
     })).filter((student) => student.student_name),
     examiners: $$('.examiner-row').map((row) => ({
       name: $('.examiner-name', row).value.trim(),
-      email: $('.examiner-email', row).value.trim().toLowerCase(),
-    })).filter((examiner) => examiner.name || examiner.email),
+    })).filter((examiner) => examiner.name),
   };
 }
 
@@ -668,11 +663,6 @@ async function createExam(event) {
 
   if (!validation.valid) {
     showErrors(validation.errors);
-    return;
-  }
-
-  if (draft.examiners.some((examiner) => !validateEmail(examiner.email))) {
-    showErrors('Revisa los emails de los examinadores.');
     return;
   }
 
@@ -726,11 +716,12 @@ async function createExam(event) {
 }
 
 async function upsertExaminer(examiner) {
+  const email = `examiner-${normalizeToken(8)}@skbc.local`;
   const { data: existing, error: readError } = await supabase
     .from('examiners')
     .select('id')
     .eq('professor_id', state.professor.id)
-    .eq('email', examiner.email)
+    .eq('email', email)
     .maybeSingle();
 
   if (readError) throw readError;
@@ -738,7 +729,7 @@ async function upsertExaminer(examiner) {
 
   const { data, error } = await supabase
     .from('examiners')
-    .insert({ professor_id: state.professor.id, name: examiner.name, email: examiner.email })
+    .insert({ professor_id: state.professor.id, name: examiner.name, email })
     .select('id')
     .single();
 
@@ -793,7 +784,7 @@ function renderExamDetails() {
         <section class="card">
           <h3>Enlaces de examinador</h3>
           ${exam.links.map((link) => `
-            <p><strong>${escapeHtml(link.examiners?.name || 'Examinador')}</strong> · ${escapeHtml(link.examiners?.email || '')}</p>
+            <p><strong>${escapeHtml(link.examiners?.name || 'Examinador')}</strong></p>
             <div class="link-box">${escapeHtml(link.access_url)}</div>
           `).join('') || '<p>No hay examinadores.</p>'}
         </section>
@@ -1203,6 +1194,7 @@ function renderExaminerForm() {
   const techniqueIndex = state.examinerTechniqueIndex;
   const currentTechnique = techniques[techniqueIndex];
   const currentTechniqueName = techniqueName(currentTechnique);
+  const currentTechniqueSummary = techniqueSummary(currentTechnique);
   const currentSection = techniqueSection(currentTechnique) || 'Técnicas';
   const previousSection = techniqueIndex > 0 ? techniqueSection(techniques[techniqueIndex - 1]) : '';
   const sectionChanged = techniqueIndex === 0 || currentSection !== previousSection;
@@ -1225,6 +1217,7 @@ function renderExaminerForm() {
         <div>
           <p>Técnica actual</p>
           <h2>${escapeHtml(currentTechniqueName)}</h2>
+          ${currentTechniqueSummary ? `<div class="technique-summary">${escapeHtml(currentTechniqueSummary)}</div>` : ''}
         </div>
         <span class="status ${completedForTechnique === payload.students.length ? 'passed' : 'draft'}">${completedForTechnique}/${payload.students.length} alumnos</span>
       </div>
@@ -1356,4 +1349,3 @@ init().catch((error) => {
   console.error(error);
   app.innerHTML = `<section class="auth-card"><div class="notice error">${escapeHtml(error.message)}</div></section>`;
 });
-
