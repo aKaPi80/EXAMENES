@@ -155,6 +155,8 @@ export function toDateOnly(value) {
 
 export function buildExamSheetPayload({
   studentName,
+  studentRef,
+  studentSourceId,
   grade,
   examinerName,
   submittedAt,
@@ -164,6 +166,8 @@ export function buildExamSheetPayload({
   return {
     accion: 'REGISTRAR_EXAMEN_WEB',
     alumno: studentName || '',
+    alumnoRef: studentRef || '',
+    alumnoId: studentSourceId || '',
     grado: gradeSheetLabel(grade),
     examinador: examinerName || '',
     fechaExamen: toDateOnly(submittedAt),
