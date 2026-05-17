@@ -21,7 +21,7 @@
   techniqueSection,
   techniqueSummary,
   validateExamDraft,
-} from './exam-core.mjs';
+} from './exam-core.mjs?v=20260517-duplicate-1';
 
 const app = document.getElementById('app');
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -390,6 +390,7 @@ function renderExamList() {
 
   $('#newExamBtn').addEventListener('click', () => switchTab('create'));
   $$('.view-exam').forEach((button) => button.addEventListener('click', () => viewExamDetails(button.dataset.id)));
+  $$('.duplicate-exam').forEach((button) => button.addEventListener('click', () => duplicateExam(button.dataset.id)));
   $$('.delete-exam').forEach((button) => button.addEventListener('click', () => deleteExam(button.dataset.id)));
   $$('.status-select').forEach((select) => select.addEventListener('change', () => updateExamStatus(select.dataset.id, select.value)));
 }
@@ -410,6 +411,7 @@ function renderExamCard(exam) {
       </div>
       <div class="btn-row">
         <button class="btn btn-primary btn-small view-exam" data-id="${exam.id}">Ver detalles</button>
+        <button class="btn btn-secondary btn-small duplicate-exam" data-id="${exam.id}">Duplicar</button>
         <button class="btn btn-danger btn-small delete-exam" data-id="${exam.id}">Eliminar</button>
       </div>
     </article>
@@ -1625,6 +1627,39 @@ async function updateExamStatus(examId, status) {
   await loadExams();
 }
 
+async function duplicateExam(examId) {
+  const exam = state.exams.find((item) => item.id === examId);
+  if (!exam) return;
+
+  const suggestedTitle = `Copia de ${exam.title || 'examen'}`;
+  const title = (prompt('Título para la copia del examen:', suggestedTitle) || '').trim();
+  if (!title) return;
+
+  const { data: copy, error } = await supabase
+    .from('exams')
+    .insert({
+      professor_id: state.professor.id,
+      title,
+      program_type: exam.program_type || 'adultos',
+      grade: exam.grade,
+      source_grade: exam.source_grade || exam.grade,
+      techniques: JSON.parse(JSON.stringify(exam.techniques || [])),
+      pass_percentage: exam.pass_percentage || 65,
+      status: 'draft',
+    })
+    .select()
+    .single();
+
+  if (error) {
+    showErrors(error.message);
+    return;
+  }
+
+  await loadExams();
+  notify('Examen duplicado como borrador. Añade alumnos y examinadores para la nueva convocatoria.', 'success');
+  await viewExamDetails(copy.id);
+}
+
 async function deleteExam(examId) {
   if (!confirm('¿Eliminar este examen y sus datos asociados?')) return;
   const { error } = await supabase.from('exams').delete().eq('id', examId);
@@ -1859,13 +1894,6 @@ init().catch((error) => {
   console.error(error);
   app.innerHTML = `<section class="auth-card"><div class="notice error">${escapeHtml(error.message)}</div></section>`;
 });
-
-
-
-
-
-
-
 
 
 
