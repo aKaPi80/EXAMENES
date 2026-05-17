@@ -706,8 +706,12 @@ function addStudentRow(student = {}) {
   const name = student.student_name || student.name || student.nombre || '';
   const belt = normalizeStudentBelt(student.student_belt_color || student.belt || student.cinturon || student.gradoActual || '');
   const order = Number(student.order_number || student.orden || index);
+  const studentRef = student.student_ref || student.alumnoRef || student.AlumnoRef || '';
+  const studentSourceId = student.student_source_id || student.alumnoId || student.id || student.ID || '';
   $('#studentsArea').insertAdjacentHTML('beforeend', `
     <div class="row-card student-row">
+      <input class="student-ref" type="hidden" value="${escapeHtml(studentRef)}" />
+      <input class="student-source-id" type="hidden" value="${escapeHtml(studentSourceId)}" />
       <div class="field">
         <label>Nombre</label>
         <input class="student-name" value="${escapeHtml(name)}" required />
@@ -874,12 +878,13 @@ function renderSheetStudentPicker(students, targetGrade) {
         ${students.map((student, index) => {
           const name = sheetStudentName(student);
           const belt = normalizeStudentBelt(student.cinturon || student.belt || student.gradoActual || currentBeltForTargetGrade(targetGrade));
+          const refLabel = sheetStudentRef(student) || sheetStudentSourceId(student);
           return `
             <label class="sheet-student-option">
               <input type="checkbox" data-sheet-student-index="${index}" checked />
               <span>
                 <strong>${escapeHtml(name || 'Alumno sin nombre')}</strong>
-                <small>${escapeHtml(belt || currentBeltForTargetGrade(targetGrade))}</small>
+                <small>${escapeHtml([belt || currentBeltForTargetGrade(targetGrade), refLabel ? `Ref. ${refLabel}` : ''].filter(Boolean).join(' · '))}</small>
               </span>
             </label>
           `;
@@ -893,6 +898,14 @@ function renderSheetStudentPicker(students, targetGrade) {
 
 function sheetStudentName(student) {
   return String(student.nombre || student.name || student.alumno || student.student_name || '').trim();
+}
+
+function sheetStudentRef(student) {
+  return String(student.alumnoRef || student.AlumnoRef || student.student_ref || '').trim();
+}
+
+function sheetStudentSourceId(student) {
+  return String(student.alumnoId || student.ID || student.id || student.student_source_id || '').trim();
 }
 
 function addSelectedSheetStudents(students, targetGrade) {
@@ -909,6 +922,8 @@ function addSelectedSheetStudents(students, targetGrade) {
     addStudentRow({
       student_name: name,
       student_belt_color: student.cinturon || student.belt || student.gradoActual || currentBeltForTargetGrade(targetGrade),
+      student_ref: sheetStudentRef(student),
+      student_source_id: sheetStudentSourceId(student),
     });
     added += 1;
   });
@@ -954,6 +969,8 @@ function collectDraft() {
     students: $$('.student-row').map((row, idx) => ({
       student_name: $('.student-name', row).value.trim(),
       student_belt_color: $('.student-belt', row).value,
+      student_ref: $('.student-ref', row)?.value.trim() || null,
+      student_source_id: $('.student-source-id', row)?.value.trim() || null,
       order_number: Number($('.student-order', row).value || idx + 1),
     })).filter((student) => student.student_name),
     examiners: $$('.examiner-row').map((row) => ({
@@ -1274,6 +1291,8 @@ async function registerPassedStudentsInSheet() {
   for (const evaluation of passedEvaluations) {
     const payload = buildExamSheetPayload({
       studentName: evaluation.exam_students?.student_name || '',
+      studentRef: evaluation.exam_students?.student_ref || '',
+      studentSourceId: evaluation.exam_students?.student_source_id || '',
       grade: exam.grade,
       examinerName: evaluation.examiners?.name || '',
       submittedAt: evaluation.submitted_at || evaluation.created_at || new Date().toISOString(),
@@ -1772,6 +1791,8 @@ init().catch((error) => {
   console.error(error);
   app.innerHTML = `<section class="auth-card"><div class="notice error">${escapeHtml(error.message)}</div></section>`;
 });
+
+
 
 
 
