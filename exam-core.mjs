@@ -15,6 +15,63 @@ export const grades = [
   ['godan', 'GODAN (5º Dan)'],
 ];
 
+export const examPrograms = [
+  ['adultos', 'Adultos'],
+  ['ninos', 'Niños'],
+];
+
+export const childrenGrades = [
+  ['children_blanco_amarillo', 'BLANCO-AMARILLO'],
+  ['children_5kyu', '5 KYU'],
+  ['children_amarillo_naranja', 'AMARILLO-NARANJA'],
+  ['children_4kyu', '4 KYU'],
+  ['children_naranja_verde', 'NARANJA-VERDE'],
+  ['children_3kyu', '3 KYU'],
+  ['children_verde_azul', 'VERDE-AZUL'],
+  ['children_2kyu', '2 KYU'],
+  ['children_azul_marron', 'AZUL-MARRON'],
+  ['children_1kyu', '1 KYU'],
+];
+
+export const childrenSourceGrades = {
+  children_blanco_amarillo: '5kyu',
+  children_5kyu: '5kyu',
+  children_amarillo_naranja: '4kyu',
+  children_4kyu: '4kyu',
+  children_naranja_verde: '3kyu',
+  children_3kyu: '3kyu',
+  children_verde_azul: '2kyu',
+  children_2kyu: '2kyu',
+  children_azul_marron: '1kyu',
+  children_1kyu: '1kyu',
+};
+
+export const childrenCurrentGrades = {
+  children_blanco_amarillo: 'BLANCO',
+  children_5kyu: 'BLANCO-AMARILLO',
+  children_amarillo_naranja: '5 KYU',
+  children_4kyu: 'AMARILLO-NARANJA',
+  children_naranja_verde: '4 KYU',
+  children_3kyu: 'NARANJA-VERDE',
+  children_verde_azul: '3 KYU',
+  children_2kyu: 'VERDE-AZUL',
+  children_azul_marron: '2 KYU',
+  children_1kyu: 'AZUL-MARRON',
+};
+
+export function gradeOptionsForProgram(programType) {
+  return programType === 'ninos' ? childrenGrades : grades;
+}
+
+export function sourceGradeForExamGrade(grade, programType = 'adultos') {
+  if (programType === 'ninos') return childrenSourceGrades[grade] || grade;
+  return grade;
+}
+
+export function isValidExamGrade(grade, programType = 'adultos') {
+  return gradeOptionsForProgram(programType).some(([id]) => id === grade);
+}
+
 export const syllabusData = {
   '5kyu': {
     Goho: ['Uchi uke zuki (ura)', 'Tenshin geri', 'Uwa uke zuki (ura)', 'Uwa uke geri'],
@@ -128,7 +185,7 @@ export const syllabusData = {
 };
 
 export function gradeLabel(value) {
-  return grades.find(([id]) => id === value)?.[1] ?? value;
+  return childrenGrades.find(([id]) => id === value)?.[1] ?? grades.find(([id]) => id === value)?.[1] ?? value;
 }
 
 export function gradeSheetLabel(value) {
@@ -143,6 +200,16 @@ export function gradeSheetLabel(value) {
     sandan: '3 DAN',
     yondan: '4 DAN',
     godan: '5 DAN',
+    children_blanco_amarillo: 'BLANCO-AMARILLO',
+    children_5kyu: '5 KYU',
+    children_amarillo_naranja: 'AMARILLO-NARANJA',
+    children_4kyu: '4 KYU',
+    children_naranja_verde: 'NARANJA-VERDE',
+    children_3kyu: '3 KYU',
+    children_verde_azul: 'VERDE-AZUL',
+    children_2kyu: '2 KYU',
+    children_azul_marron: 'AZUL-MARRON',
+    children_1kyu: '1 KYU',
   };
   return labels[value] || String(value || '').toUpperCase();
 }
@@ -157,7 +224,9 @@ export function buildExamSheetPayload({
   studentName,
   studentRef,
   studentSourceId,
+  programType = 'adultos',
   grade,
+  sourceGrade,
   examinerName,
   submittedAt,
   registeredBy,
@@ -168,7 +237,9 @@ export function buildExamSheetPayload({
     alumno: studentName || '',
     alumnoRef: studentRef || '',
     alumnoId: studentSourceId || '',
+    programa: programType,
     grado: gradeSheetLabel(grade),
+    gradoFuente: sourceGrade ? gradeSheetLabel(sourceGrade) : '',
     examinador: examinerName || '',
     fechaExamen: toDateOnly(submittedAt),
     registradoPor: registeredBy || 'Sistema exámenes SKBC',
@@ -218,8 +289,9 @@ function expandTechniqueVariants(name) {
   return [variantMatch[1], variantMatch[2]].map((variant) => `${labels[variant.toLowerCase()] || variant} ${baseName}`);
 }
 
-export function getOrderedTechniqueItems(grade) {
-  const blocks = syllabusData[grade] || {};
+export function getOrderedTechniqueItems(grade, programType = 'adultos') {
+  const sourceGrade = sourceGradeForExamGrade(grade, programType);
+  const blocks = syllabusData[sourceGrade] || {};
   const ordered = [];
   const consumed = new Set();
 
@@ -272,8 +344,9 @@ export function getOrderedTechniqueItems(grade) {
   return ordered;
 }
 
-export function getPreviousGohoJuhoTechniqueItems(grade) {
-  const gradeIndex = grades.findIndex(([id]) => id === grade);
+export function getPreviousGohoJuhoTechniqueItems(grade, programType = 'adultos') {
+  const sourceGrade = sourceGradeForExamGrade(grade, programType);
+  const gradeIndex = grades.findIndex(([id]) => id === sourceGrade);
   if (gradeIndex <= 0) return [];
 
   return grades.slice(0, gradeIndex).flatMap(([previousGrade, previousGradeLabel]) => {
@@ -357,11 +430,12 @@ export function validateEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim());
 }
 
-export function validateExamDraft({ title, grade, techniques, students, examiners }) {
+export function validateExamDraft({ title, grade, sourceGrade, programType = 'adultos', techniques, students, examiners }) {
   const errors = [];
+  const resolvedSourceGrade = sourceGrade || sourceGradeForExamGrade(grade, programType);
 
   if (!String(title || '').trim()) errors.push('El título del examen es obligatorio.');
-  if (!grade || !syllabusData[grade]) errors.push('Selecciona un grado válido.');
+  if (!grade || !isValidExamGrade(grade, programType) || !syllabusData[resolvedSourceGrade]) errors.push('Selecciona un grado válido.');
   if (!Array.isArray(techniques) || techniques.length === 0) errors.push('Selecciona al menos una técnica.');
   if (!Array.isArray(students) || students.filter((student) => student.student_name?.trim()).length === 0) {
     errors.push('Agrega al menos un estudiante.');
