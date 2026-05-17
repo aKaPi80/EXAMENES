@@ -21,7 +21,7 @@
   techniqueSection,
   techniqueSummary,
   validateExamDraft,
-} from './exam-core.mjs?v=20260517-duplicate-1';
+} from './exam-core.mjs?v=20260517-duplicate-2';
 
 const app = document.getElementById('app');
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -37,6 +37,7 @@ const state = {
   examinerAnswers: {},
   customTechniqueCounter: 0,
   techniqueRowCounter: 0,
+  examTemplateDraft: null,
   techniqueSummaries: new Map(),
 };
 
@@ -420,11 +421,12 @@ function renderExamCard(exam) {
 
 function renderCreateExam() {
   state.customTechniqueCounter = 0;
+  const template = state.examTemplateDraft;
   $('#panelContent').innerHTML = `
     <div class="section-head">
       <div>
-        <h2>Crear examen</h2>
-        <p>Define técnicas, estudiantes y examinadores en un único flujo.</p>
+        <h2>${template ? 'Crear examen desde copia' : 'Crear examen'}</h2>
+        <p>${template ? 'Revisa la copia, carga alumnos y añade examinadores antes de crear la nueva convocatoria.' : 'Define técnicas, estudiantes y examinadores en un único flujo.'}</p>
       </div>
     </div>
     <form id="examForm">
@@ -476,6 +478,16 @@ function renderCreateExam() {
   `;
 
   populateExamGradeOptions();
+  if (template) {
+    $('#examTitle').value = template.title || '';
+    $('#examProgram').value = template.program_type || 'adultos';
+    populateExamGradeOptions();
+    $('#examGrade').value = template.grade || '';
+    $('#passPercentage').value = Number(template.pass_percentage || 65);
+    $('#passLabel').textContent = `${$('#passPercentage').value}%`;
+    renderTemplateTechniques(template);
+    state.examTemplateDraft = null;
+  }
   $('#examProgram').addEventListener('change', async () => {
     populateExamGradeOptions();
     renderTechniquesForGrade();
@@ -566,6 +578,56 @@ function renderTechniquesForGrade() {
   refreshTechniquePositionOptions();
 }
 
+function renderTemplateTechniques(template) {
+  const grade = $('#examGrade').value;
+  const programType = selectedProgramType();
+  const sourceGrade = template.source_grade || sourceGradeForExamGrade(grade, programType);
+  const previousGohoJuhoItems = getPreviousGohoJuhoTechniqueItems(grade, programType);
+  const blocks = groupTechniqueItemsBySection(template.techniques || []);
+  state.techniqueRowCounter = 0;
+  $('#techniquesArea').innerHTML = `
+    <div class="notice">Copia cargada desde "${escapeHtml(template.original_title || 'examen anterior')}". Puedes cambiar técnicas, pesos, alumnos y examinadores antes de crear el nuevo examen.</div>
+    ${programType === 'ninos' && grade ? `<div class="notice">Examen infantil ${escapeHtml(gradeLabel(grade))}: usa como base el temario adulto de ${escapeHtml(gradeLabel(sourceGrade))}.</div>` : ''}
+    ${blocks.map(([block, techniques]) => `
+      <section class="tech-block">
+        <h3>${escapeHtml(block || 'Técnicas')}</h3>
+        ${techniques.map((item, index) => renderTechniqueEditor(item, `${slugifyId(block)}-${index}`)).join('')}
+      </section>
+    `).join('')}
+    ${grade ? `
+      <section class="tech-block custom-tech-block">
+        <div class="tech-block-head">
+          <h3>Técnicas añadidas</h3>
+          <button class="btn btn-secondary btn-small" id="addCustomTechniqueBtn" type="button">Añadir técnica</button>
+        </div>
+        <p class="helper-text">Solo se guardarán en este examen concreto.</p>
+        <div class="field technique-position-field">
+          <label for="insertTechniquePosition">Dónde colocar la técnica añadida</label>
+          <select id="insertTechniquePosition"></select>
+        </div>
+        ${previousGohoJuhoItems.length ? `
+          <div class="previous-technique-picker">
+            <div class="field">
+              <label for="previousTechniqueSelect">Añadir Goho/Juho de grados anteriores</label>
+              <select id="previousTechniqueSelect">
+                <option value="">Selecciona una técnica</option>
+                ${previousGohoJuhoItems.map((item, index) => `
+                  <option value="${index}">${escapeHtml(item.gradeLabel)} · ${escapeHtml(item.section)} · ${escapeHtml(item.name)}</option>
+                `).join('')}
+              </select>
+            </div>
+            <button class="btn btn-secondary btn-small" id="addPreviousTechniqueBtn" type="button">Añadir seleccionada</button>
+          </div>
+        ` : '<p class="helper-text">No hay grados anteriores para añadir Goho/Juho.</p>'}
+        <div id="customTechniquesArea" class="custom-techniques"></div>
+      </section>
+    ` : ''}
+  `;
+  $('#addCustomTechniqueBtn')?.addEventListener('click', addCustomTechniqueRow);
+  $('#addPreviousTechniqueBtn')?.addEventListener('click', () => addPreviousTechniqueRow(previousGohoJuhoItems));
+  refreshTechniquePositionOptions();
+}
+
 function groupTechniqueItemsBySection(items) {
   const sections = [];
   items.forEach((item) => {
@@ -590,19 +652,22 @@ function slugifyId(value) {
 
 function renderTechniqueEditor(item, id) {
   const inputId = `techniqueName-${id}`;
-  const grade = selectedSourceGrade();
+  const name = techniqueName(item);
+  const originalName = item?.original_name || name;
+  const grade = item?.source_grade || selectedSourceGrade();
+  const weightValue = Number(item?.weight || 1);
   const rowId = nextTechniqueRowId();
   return `
     <div class="tech-item technique-editor" data-technique-row data-technique-row-id="${escapeHtml(rowId)}">
       <label class="technique-check">
-        <input type="checkbox" data-technique data-section="${escapeHtml(item.section)}" data-grade="${escapeHtml(grade)}" data-original-name="${escapeHtml(item.name)}" value="${escapeHtml(item.name)}" checked />
+        <input type="checkbox" data-technique data-section="${escapeHtml(item.section)}" data-grade="${escapeHtml(grade)}" data-original-name="${escapeHtml(originalName)}" value="${escapeHtml(name)}" checked />
         <span class="sr-only">Incluir técnica</span>
       </label>
-      <input id="${escapeHtml(inputId)}" class="technique-name-input" data-technique-name value="${escapeHtml(item.name)}" aria-label="Nombre de técnica" />
+      <input id="${escapeHtml(inputId)}" class="technique-name-input" data-technique-name value="${escapeHtml(name)}" aria-label="Nombre de técnica" />
       <label class="technique-weight">
         <span>Peso</span>
         <select data-technique-weight aria-label="Peso de técnica">
-          ${[1, 2, 3, 4, 5].map((weight) => `<option value="${weight}">${weight}</option>`).join('')}
+          ${[1, 2, 3, 4, 5].map((weight) => `<option value="${weight}" ${weight === weightValue ? 'selected' : ''}>${weight}</option>`).join('')}
         </select>
       </label>
     </div>
@@ -1635,29 +1700,17 @@ async function duplicateExam(examId) {
   const title = (prompt('Título para la copia del examen:', suggestedTitle) || '').trim();
   if (!title) return;
 
-  const { data: copy, error } = await supabase
-    .from('exams')
-    .insert({
-      professor_id: state.professor.id,
-      title,
-      program_type: exam.program_type || 'adultos',
-      grade: exam.grade,
-      source_grade: exam.source_grade || exam.grade,
-      techniques: JSON.parse(JSON.stringify(exam.techniques || [])),
-      pass_percentage: exam.pass_percentage || 65,
-      status: 'draft',
-    })
-    .select()
-    .single();
-
-  if (error) {
-    showErrors(error.message);
-    return;
-  }
-
-  await loadExams();
-  notify('Examen duplicado como borrador. Añade alumnos y examinadores para la nueva convocatoria.', 'success');
-  await viewExamDetails(copy.id);
+  state.examTemplateDraft = {
+    original_title: exam.title,
+    title,
+    program_type: exam.program_type || 'adultos',
+    grade: exam.grade,
+    source_grade: exam.source_grade || exam.grade,
+    techniques: JSON.parse(JSON.stringify(exam.techniques || [])),
+    pass_percentage: exam.pass_percentage || 65,
+  };
+  switchTab('create');
+  notify('Copia cargada. Añade alumnos y examinadores, y después crea la nueva convocatoria.', 'success');
 }
 
 async function deleteExam(examId) {
@@ -1894,6 +1947,8 @@ init().catch((error) => {
   console.error(error);
   app.innerHTML = `<section class="auth-card"><div class="notice error">${escapeHtml(error.message)}</div></section>`;
 });
+
+
 
 
 
