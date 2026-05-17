@@ -47,7 +47,7 @@ export const childrenSourceGrades = {
 };
 
 export const childrenCurrentGrades = {
-  children_blanco_amarillo: 'BLANCO',
+  children_blanco_amarillo: 'MINARAI',
   children_5kyu: 'BLANCO-AMARILLO',
   children_amarillo_naranja: '5 KYU',
   children_4kyu: 'AMARILLO-NARANJA',
