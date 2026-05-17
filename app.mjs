@@ -5,6 +5,9 @@
   buildExamSheetPayload,
   buildPrintableEvaluation,
   calculateEvaluationSummary,
+  childrenCurrentGrades,
+  examPrograms,
+  gradeOptionsForProgram,
   getPreviousGohoJuhoTechniqueItems,
   getSelectedTechniques,
   getOrderedTechniqueItems,
@@ -12,6 +15,7 @@
   gradeSheetLabel,
   grades,
   normalizeToken,
+  sourceGradeForExamGrade,
   syllabusData,
   techniqueName,
   techniqueSection,
@@ -428,10 +432,14 @@ function renderCreateExam() {
           <input id="examTitle" placeholder="Examen 3 KYU - Mayo 2026" required />
         </div>
         <div class="field">
+          <label for="examProgram">Tipo de examen</label>
+          <select id="examProgram">
+            ${examPrograms.map(([id, label]) => `<option value="${id}">${label}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
           <label for="examGrade">Grado al que se examina</label>
           <select id="examGrade" required>
-            <option value="">Selecciona un grado</option>
-            ${grades.map(([id, label]) => `<option value="${id}">${label}</option>`).join('')}
           </select>
         </div>
         <div class="field">
@@ -439,7 +447,7 @@ function renderCreateExam() {
           <input id="passPercentage" type="range" min="40" max="90" value="65" />
         </div>
       </div>
-      <div class="notice">Selecciona el grado objetivo del examen: Minarai/Blanco examina 5 KYU, 5 KYU examina 4 KYU, 4 KYU examina 3 KYU, y así sucesivamente.</div>
+      <div class="notice" id="gradeHelp">Selecciona el grado objetivo del examen: Minarai/Blanco examina 5 KYU, 5 KYU examina 4 KYU, 4 KYU examina 3 KYU, y así sucesivamente.</div>
       <div id="techniquesArea" class="technique-grid"></div>
       <div class="section-head" style="margin-top:22px">
         <div>
@@ -465,10 +473,17 @@ function renderCreateExam() {
     </form>
   `;
 
+  populateExamGradeOptions();
+  $('#examProgram').addEventListener('change', async () => {
+    populateExamGradeOptions();
+    renderTechniquesForGrade();
+    $('#sheetStudentsArea').innerHTML = '';
+    await loadTechniqueSummariesForGrade(selectedSourceGrade());
+  });
   $('#examGrade').addEventListener('change', async () => {
     renderTechniquesForGrade();
     $('#sheetStudentsArea').innerHTML = '';
-    await loadTechniqueSummariesForGrade($('#examGrade').value);
+    await loadTechniqueSummariesForGrade(selectedSourceGrade());
   });
   $('#passPercentage').addEventListener('input', () => { $('#passLabel').textContent = `${$('#passPercentage').value}%`; });
   $('#loadSheetStudentsBtn').addEventListener('click', loadSheetStudentsForExam);
@@ -479,13 +494,36 @@ function renderCreateExam() {
   addExaminerRow();
 }
 
+function selectedProgramType() {
+  return $('#examProgram')?.value || 'adultos';
+}
+
+function selectedSourceGrade() {
+  return sourceGradeForExamGrade($('#examGrade')?.value || '', selectedProgramType());
+}
+
+function populateExamGradeOptions() {
+  const programType = selectedProgramType();
+  const gradeSelect = $('#examGrade');
+  gradeSelect.innerHTML = `
+    <option value="">Selecciona un grado</option>
+    ${gradeOptionsForProgram(programType).map(([id, label]) => `<option value="${id}">${label}</option>`).join('')}
+  `;
+  $('#gradeHelp').textContent = programType === 'ninos'
+    ? 'Selecciona el grado infantil objetivo. La app propondrá el temario adulto equivalente para que el profesor lo adapte.'
+    : 'Selecciona el grado objetivo del examen: Minarai/Blanco examina 5 KYU, 5 KYU examina 4 KYU, 4 KYU examina 3 KYU, y así sucesivamente.';
+}
+
 function renderTechniquesForGrade() {
   const grade = $('#examGrade').value;
-  const orderedItems = getOrderedTechniqueItems(grade);
-  const previousGohoJuhoItems = getPreviousGohoJuhoTechniqueItems(grade);
+  const programType = selectedProgramType();
+  const sourceGrade = sourceGradeForExamGrade(grade, programType);
+  const orderedItems = getOrderedTechniqueItems(grade, programType);
+  const previousGohoJuhoItems = getPreviousGohoJuhoTechniqueItems(grade, programType);
   const blocks = groupTechniqueItemsBySection(orderedItems);
   state.techniqueRowCounter = 0;
   $('#techniquesArea').innerHTML = `
+    ${programType === 'ninos' && grade ? `<div class="notice">Examen infantil ${escapeHtml(gradeLabel(grade))}: se propone el temario adulto de ${escapeHtml(gradeLabel(sourceGrade))}.</div>` : ''}
     ${blocks.map(([block, techniques]) => `
       <section class="tech-block">
         <h3>${escapeHtml(block)}</h3>
@@ -550,7 +588,7 @@ function slugifyId(value) {
 
 function renderTechniqueEditor(item, id) {
   const inputId = `techniqueName-${id}`;
-  const grade = $('#examGrade')?.value || '';
+  const grade = selectedSourceGrade();
   const rowId = nextTechniqueRowId();
   return `
     <div class="tech-item technique-editor" data-technique-row data-technique-row-id="${escapeHtml(rowId)}">
@@ -580,7 +618,7 @@ function addCustomTechniqueRow() {
   addTechniqueRow({
     inputId: `customTechniqueName-${index}`,
     section: 'Técnicas añadidas',
-    grade: $('#examGrade')?.value || '',
+    grade: selectedSourceGrade(),
     name: '',
     label: 'Nombre de técnica',
     placeholder: 'Ej. Defensa especial para este examen',
@@ -746,6 +784,11 @@ function normalizeStudentBelt(value) {
     .toLowerCase();
 
   if (!simple) return '';
+  if (simple.includes('blanco') && simple.includes('amarillo')) return 'Blanco-Amarillo';
+  if (simple.includes('amarillo') && simple.includes('naranja')) return 'Amarillo-Naranja';
+  if (simple.includes('naranja') && simple.includes('verde')) return 'Naranja-Verde';
+  if (simple.includes('verde') && simple.includes('azul')) return 'Verde-Azul';
+  if (simple.includes('azul') && simple.includes('marron')) return 'Azul-Marron';
   if (simple.includes('blanco') || simple.includes('minarai')) return 'Blanco (Minarai)';
   if (simple.includes('amarillo') || simple.includes('5 kyu') || simple.includes('5kyu')) return 'Amarillo';
   if (simple.includes('naranja') || simple.includes('4 kyu') || simple.includes('4kyu')) return 'Naranja';
@@ -757,6 +800,7 @@ function normalizeStudentBelt(value) {
 }
 
 function currentGradeForTargetGrade(targetGrade) {
+  if (childrenCurrentGrades[targetGrade]) return childrenCurrentGrades[targetGrade];
   const currentGrades = {
     '5kyu': 'MINARAI',
     '4kyu': '5 KYU',
@@ -773,6 +817,19 @@ function currentGradeForTargetGrade(targetGrade) {
 }
 
 function currentBeltForTargetGrade(targetGrade) {
+  const childrenBelts = {
+    children_blanco_amarillo: 'Blanco',
+    children_5kyu: 'Blanco-Amarillo',
+    children_amarillo_naranja: 'Amarillo',
+    children_4kyu: 'Amarillo-Naranja',
+    children_naranja_verde: 'Naranja',
+    children_3kyu: 'Naranja-Verde',
+    children_verde_azul: 'Verde',
+    children_2kyu: 'Verde-Azul',
+    children_azul_marron: 'Azul',
+    children_1kyu: 'Azul-Marron',
+  };
+  if (childrenBelts[targetGrade]) return childrenBelts[targetGrade];
   const belts = {
     '5kyu': 'Blanco (Minarai)',
     '4kyu': 'Amarillo',
@@ -790,6 +847,7 @@ function currentBeltForTargetGrade(targetGrade) {
 
 async function loadSheetStudentsForExam() {
   const grade = $('#examGrade')?.value || '';
+  const programType = selectedProgramType();
   if (!grade) {
     showErrors('Selecciona primero el grado objetivo del examen.');
     return;
@@ -806,6 +864,7 @@ async function loadSheetStudentsForExam() {
   try {
     const payload = await fetchSheetStudentsJsonp({
       token,
+      programType,
       targetGrade: grade,
       targetGradeLabel: gradeSheetLabel(grade),
       currentGrade: currentGradeForTargetGrade(grade),
@@ -817,12 +876,13 @@ async function loadSheetStudentsForExam() {
   }
 }
 
-function fetchSheetStudentsJsonp({ token, targetGrade, targetGradeLabel, currentGrade }) {
+function fetchSheetStudentsJsonp({ token, programType, targetGrade, targetGradeLabel, currentGrade }) {
   return new Promise((resolve, reject) => {
     const callbackName = `skbcStudentsCallback_${normalizeToken(8)}`;
     const url = new URL(EXAM_SHEET_WEBAPP_URL);
     url.searchParams.set('accion', 'LISTAR_ALUMNOS_EXAMEN_WEB');
     url.searchParams.set('token', token);
+    url.searchParams.set('programa', programType);
     url.searchParams.set('gradoObjetivo', targetGradeLabel);
     url.searchParams.set('gradoObjetivoId', targetGrade);
     url.searchParams.set('gradoActual', currentGrade);
@@ -961,9 +1021,13 @@ function bindRemoveButtons() {
 
 function collectDraft() {
   const form = $('#examForm');
+  const programType = selectedProgramType();
+  const grade = $('#examGrade').value;
   return {
     title: $('#examTitle').value.trim(),
-    grade: $('#examGrade').value,
+    programType,
+    grade,
+    sourceGrade: sourceGradeForExamGrade(grade, programType),
     passPercentage: Number($('#passPercentage').value),
     techniques: getSelectedTechniques(form),
     students: $$('.student-row').map((row, idx) => ({
@@ -1025,7 +1089,7 @@ function addSummariesToTechniques(techniques) {
 async function createExam(event) {
   event.preventDefault();
   const draft = collectDraft();
-  await loadTechniqueSummariesForGrade(draft.grade);
+  await loadTechniqueSummariesForGrade(draft.sourceGrade);
   draft.techniques = addSummariesToTechniques(draft.techniques);
   const validation = validateExamDraft(draft);
 
@@ -1040,6 +1104,8 @@ async function createExam(event) {
       professor_id: state.professor.id,
       title: draft.title,
       grade: draft.grade,
+      program_type: draft.programType,
+      source_grade: draft.sourceGrade,
       techniques: draft.techniques,
       pass_percentage: draft.passPercentage,
       status: 'active',
@@ -1293,7 +1359,9 @@ async function registerPassedStudentsInSheet() {
       studentName: evaluation.exam_students?.student_name || '',
       studentRef: evaluation.exam_students?.student_ref || '',
       studentSourceId: evaluation.exam_students?.student_source_id || '',
+      programType: exam.program_type || 'adultos',
       grade: exam.grade,
+      sourceGrade: exam.source_grade || exam.grade,
       examinerName: evaluation.examiners?.name || '',
       submittedAt: evaluation.submitted_at || evaluation.created_at || new Date().toISOString(),
       registeredBy: state.professor?.name || state.professor?.email || 'Sistema exámenes SKBC',
@@ -1791,6 +1859,8 @@ init().catch((error) => {
   console.error(error);
   app.innerHTML = `<section class="auth-card"><div class="notice error">${escapeHtml(error.message)}</div></section>`;
 });
+
+
 
 
 
