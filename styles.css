@@ -685,6 +685,39 @@ button, input, select, textarea { font: inherit; }
   color: #4b5563;
 }
 
+.study-sections {
+  display: grid;
+  gap: 18px;
+}
+
+.study-section {
+  break-inside: avoid;
+}
+
+.study-section h3 {
+  margin: 0 0 10px;
+  color: var(--blue-dark);
+  border-bottom: 1px solid #d9e2ec;
+  padding-bottom: 8px;
+}
+
+.study-section ol {
+  margin: 0;
+  padding-left: 24px;
+}
+
+.study-section li {
+  margin-bottom: 10px;
+  padding-left: 4px;
+}
+
+.study-section li p {
+  margin: 4px 0 0;
+  color: #4b5563;
+  font-size: 0.94rem;
+  line-height: 1.45;
+}
+
 @media (max-width: 860px) {
   .app-shell { width: min(100% - 18px, 1380px); padding-top: 10px; }
   .topbar, .section-head, .examiner-header { flex-direction: column; align-items: stretch; }
@@ -731,7 +764,9 @@ button, input, select, textarea { font: inherit; }
 
   .print-table tr,
   .print-meta div,
-  .print-score div {
+  .print-score div,
+  .study-section,
+  .study-section li {
     break-inside: avoid;
   }
 }
