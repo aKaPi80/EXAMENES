@@ -21,7 +21,7 @@
   techniqueSection,
   techniqueSummary,
   validateExamDraft,
-} from './exam-core.mjs?v=20260518-study-print-2';
+} from './exam-core.mjs?v=20260518-study-print-3';
 
 const app = document.getElementById('app');
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1500,7 +1500,7 @@ function renderPrintableStudyExam() {
           <tr>
             <th>Sección</th>
             <th>Técnica</th>
-            <th>Resumen</th>
+            <th>Resumen / claves</th>
             <th>Mis notas</th>
           </tr>
         </thead>
@@ -1509,7 +1509,7 @@ function renderPrintableStudyExam() {
             <tr>
               <td>${escapeHtml(section || 'Técnicas')}</td>
               <td><strong>${escapeHtml(techniqueName(item))}</strong></td>
-              <td>${escapeHtml(techniqueSummary(item) || '')}</td>
+              <td class="notes-cell"></td>
               <td class="notes-cell"></td>
             </tr>
           `)).join('')}
@@ -1695,10 +1695,8 @@ function downloadStudyExamPdf(report) {
 
   report.sections.forEach(([section, techniques]) => {
     techniques.forEach((item) => {
-      const summary = techniqueSummary(item);
-      const summaryLines = doc.splitTextToSize(String(summary || ''), columns[2].width - 6);
       const nameLines = doc.splitTextToSize(String(techniqueName(item)), columns[1].width - 6);
-      const rowHeight = Math.max(28, (Math.max(summaryLines.length, nameLines.length, 2) * 10) + 10);
+      const rowHeight = Math.max(34, (Math.max(nameLines.length, 2) * 10) + 16);
       ensureSpace(rowHeight + 12);
       if (y < 50) drawHeader();
 
@@ -1707,12 +1705,13 @@ function downloadStudyExamPdf(report) {
       columns.slice(1).forEach((column) => doc.line(column.x - 4, y - 10, column.x - 4, y - 10 + rowHeight));
       addWrapped(section || 'Técnicas', columns[0].x + 3, y, columns[0].width - 6, { size: 7, color: [75, 85, 99] });
       addWrapped(techniqueName(item), columns[1].x + 3, y, columns[1].width - 6, { size: 8, bold: true });
-      if (summary) addText(summaryLines, columns[2].x + 3, y, { size: 7.5, color: [75, 85, 99] });
-      const notesTop = y - 3;
-      for (let lineY = notesTop + 9; lineY < y - 10 + rowHeight - 4; lineY += 12) {
-        doc.setDrawColor(229, 231, 235);
-        doc.line(columns[3].x + 4, lineY, columns[3].x + columns[3].width - 6, lineY);
-      }
+      [columns[2], columns[3]].forEach((column) => {
+        const notesTop = y - 3;
+        for (let lineY = notesTop + 9; lineY < y - 10 + rowHeight - 4; lineY += 12) {
+          doc.setDrawColor(229, 231, 235);
+          doc.line(column.x + 4, lineY, column.x + column.width - 6, lineY);
+        }
+      });
       y += rowHeight;
     });
   });
@@ -2104,10 +2103,6 @@ init().catch((error) => {
   console.error(error);
   app.innerHTML = `<section class="auth-card"><div class="notice error">${escapeHtml(error.message)}</div></section>`;
 });
-
-
-
-
 
 
 
