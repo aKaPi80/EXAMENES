@@ -21,7 +21,7 @@
   techniqueSection,
   techniqueSummary,
   validateExamDraft,
-} from './exam-core.mjs?v=20260518-study-print-1';
+} from './exam-core.mjs?v=20260518-study-print-2';
 
 const app = document.getElementById('app');
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1495,21 +1495,26 @@ function renderPrintableStudyExam() {
         <div><strong>Grado</strong><span>${escapeHtml(report.gradeLabel)}</span></div>
         <div><strong>Técnicas</strong><span>${report.techniqueCount}</span></div>
       </section>
-      <div class="study-sections">
-        ${report.sections.map(([section, techniques]) => `
-          <section class="study-section">
-            <h3>${escapeHtml(section || 'Técnicas')}</h3>
-            <ol>
-              ${techniques.map((item) => `
-                <li>
-                  <strong>${escapeHtml(techniqueName(item))}</strong>
-                  ${techniqueSummary(item) ? `<p>${escapeHtml(techniqueSummary(item))}</p>` : ''}
-                </li>
-              `).join('')}
-            </ol>
-          </section>
-        `).join('')}
-      </div>
+      <table class="study-table">
+        <thead>
+          <tr>
+            <th>Sección</th>
+            <th>Técnica</th>
+            <th>Resumen</th>
+            <th>Mis notas</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${report.sections.flatMap(([section, techniques]) => techniques.map((item) => `
+            <tr>
+              <td>${escapeHtml(section || 'Técnicas')}</td>
+              <td><strong>${escapeHtml(techniqueName(item))}</strong></td>
+              <td>${escapeHtml(techniqueSummary(item) || '')}</td>
+              <td class="notes-cell"></td>
+            </tr>
+          `)).join('')}
+        </tbody>
+      </table>
     </article>
   `;
 
@@ -1633,11 +1638,11 @@ function downloadStudyExamPdf(report) {
     return;
   }
 
-  const doc = new jsPdf({ unit: 'pt', format: 'a4' });
-  const margin = 42;
+  const doc = new jsPdf({ unit: 'pt', format: 'a4', orientation: 'landscape' });
+  const margin = 28;
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  let y = 46;
+  let y = 32;
 
   const addText = (text, x, yy, options = {}) => {
     doc.setFont('helvetica', options.bold ? 'bold' : 'normal');
@@ -1658,35 +1663,58 @@ function downloadStudyExamPdf(report) {
     y = margin;
   };
 
-  addText('TEMARIO DE ESTUDIO SKBC', margin, y, { size: 12, bold: true, color: [25, 118, 210] });
-  y += 30;
-  addText(report.clubName || 'Club SKBC', margin, y, { size: 22, bold: true, color: [18, 79, 141] });
-  y += 26;
-  addText(report.examTitle, margin, y, { size: 14, bold: true, color: [75, 93, 115] });
-  y += 22;
-  addText(`${report.programLabel} · ${report.gradeLabel} · ${report.techniqueCount} técnicas`, margin, y, { size: 10, color: [75, 93, 115] });
+  addText('TEMARIO DE ESTUDIO SKBC', margin, y, { size: 10, bold: true, color: [25, 118, 210] });
   y += 20;
+  addText(report.examTitle, margin, y, { size: 15, bold: true, color: [18, 79, 141] });
+  addText(`${report.programLabel} · ${report.gradeLabel} · ${report.techniqueCount} técnicas`, pageWidth - margin, y, {
+    size: 9,
+    color: [75, 93, 115],
+    align: 'right',
+  });
+  y += 14;
   doc.setDrawColor(25, 118, 210);
   doc.setLineWidth(2);
   doc.line(margin, y, pageWidth - margin, y);
-  y += 28;
+  y += 18;
+
+  const columns = [
+    { label: 'Sección', x: margin, width: 92 },
+    { label: 'Técnica', x: margin + 96, width: 158 },
+    { label: 'Resumen', x: margin + 258, width: 336 },
+    { label: 'Mis notas', x: margin + 598, width: pageWidth - margin - (margin + 598) },
+  ];
+
+  const drawHeader = () => {
+    doc.setFillColor(234, 244, 255);
+    doc.rect(margin, y - 11, pageWidth - margin * 2, 18, 'F');
+    columns.forEach((column) => addText(column.label, column.x + 3, y, { size: 8, bold: true, color: [18, 55, 94] }));
+    y += 14;
+  };
+
+  drawHeader();
 
   report.sections.forEach(([section, techniques]) => {
-    ensureSpace(48);
-    addText(section || 'Técnicas', margin, y, { size: 13, bold: true, color: [18, 55, 94] });
-    y += 20;
-
-    techniques.forEach((item, index) => {
+    techniques.forEach((item) => {
       const summary = techniqueSummary(item);
-      ensureSpace(summary ? 70 : 34);
-      y = addWrapped(`${index + 1}. ${techniqueName(item)}`, margin + 10, y, pageWidth - margin * 2 - 10, { size: 10, bold: true });
-      if (summary) {
-        y = addWrapped(summary, margin + 26, y + 2, pageWidth - margin * 2 - 26, { size: 9, color: [75, 85, 99] });
-      }
-      y += 10;
-    });
+      const summaryLines = doc.splitTextToSize(String(summary || ''), columns[2].width - 6);
+      const nameLines = doc.splitTextToSize(String(techniqueName(item)), columns[1].width - 6);
+      const rowHeight = Math.max(28, (Math.max(summaryLines.length, nameLines.length, 2) * 10) + 10);
+      ensureSpace(rowHeight + 12);
+      if (y < 50) drawHeader();
 
-    y += 8;
+      doc.setDrawColor(217, 226, 236);
+      doc.rect(margin, y - 10, pageWidth - margin * 2, rowHeight);
+      columns.slice(1).forEach((column) => doc.line(column.x - 4, y - 10, column.x - 4, y - 10 + rowHeight));
+      addWrapped(section || 'Técnicas', columns[0].x + 3, y, columns[0].width - 6, { size: 7, color: [75, 85, 99] });
+      addWrapped(techniqueName(item), columns[1].x + 3, y, columns[1].width - 6, { size: 8, bold: true });
+      if (summary) addText(summaryLines, columns[2].x + 3, y, { size: 7.5, color: [75, 85, 99] });
+      const notesTop = y - 3;
+      for (let lineY = notesTop + 9; lineY < y - 10 + rowHeight - 4; lineY += 12) {
+        doc.setDrawColor(229, 231, 235);
+        doc.line(columns[3].x + 4, lineY, columns[3].x + columns[3].width - 6, lineY);
+      }
+      y += rowHeight;
+    });
   });
 
   doc.save(`${safeFileName(report.examTitle)}-temario.pdf`);
@@ -2076,6 +2104,7 @@ init().catch((error) => {
   console.error(error);
   app.innerHTML = `<section class="auth-card"><div class="notice error">${escapeHtml(error.message)}</div></section>`;
 });
+
 
 
 
