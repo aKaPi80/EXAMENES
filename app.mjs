@@ -21,7 +21,7 @@
   techniqueSection,
   techniqueSummary,
   validateExamDraft,
-} from './exam-core.mjs?v=20260517-duplicate-2';
+} from './exam-core.mjs?v=20260518-study-print-1';
 
 const app = document.getElementById('app');
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1272,6 +1272,7 @@ function renderExamDetails() {
         <p>${escapeHtml(gradeLabel(exam.grade))} · ${(exam.techniques || []).length} técnicas · aprobado desde ${exam.pass_percentage}%</p>
       </div>
       <div class="btn-row">
+        <button class="btn btn-secondary" id="printStudyExam">Imprimir temario para alumnos</button>
         <button class="btn btn-success" id="registerPassed">Registrar aprobados en base de datos</button>
         <button class="btn btn-secondary" id="backToExams">Volver</button>
       </div>
@@ -1302,6 +1303,7 @@ function renderExamDetails() {
     </div>
   `;
   $('#backToExams').addEventListener('click', renderExamList);
+  $('#printStudyExam').addEventListener('click', renderPrintableStudyExam);
   $('#registerPassed').addEventListener('click', registerPassedStudentsInSheet);
   $$('.copy-link').forEach((button) => {
     button.addEventListener('click', () => copyLink(button.dataset.url));
@@ -1455,6 +1457,67 @@ async function registerPassedStudentsInSheet() {
   notify('Aprobados enviados a Google Sheets. Revisa la pestaña EXAMENES.');
 }
 
+function buildStudyExamReport(exam) {
+  const techniques = exam.techniques || [];
+  return {
+    clubName: state.professor.club_name,
+    examTitle: exam.title,
+    gradeLabel: gradeLabel(exam.grade),
+    programLabel: exam.program_type === 'ninos' ? 'Examen infantil' : 'Examen adultos',
+    techniqueCount: techniques.length,
+    sections: groupTechniqueItemsBySection(techniques),
+  };
+}
+
+function renderPrintableStudyExam() {
+  const exam = state.selectedExam;
+  if (!exam) return;
+
+  const report = buildStudyExamReport(exam);
+  $('#panelContent').innerHTML = `
+    <div class="print-toolbar">
+      <button class="btn btn-secondary" id="backToDetails">Volver al examen</button>
+      <div class="btn-row">
+        <button class="btn btn-secondary" id="printStudyReport">Imprimir</button>
+        <button class="btn btn-primary" id="downloadStudyPdf">Descargar PDF</button>
+      </div>
+    </div>
+    <article class="print-report study-report">
+      <header class="print-report-head">
+        <div>
+          <p class="print-kicker">Temario de estudio SKBC</p>
+          <h1>${escapeHtml(report.clubName || 'Club SKBC')}</h1>
+          <h2>${escapeHtml(report.examTitle)}</h2>
+        </div>
+      </header>
+      <section class="print-meta">
+        <div><strong>Tipo</strong><span>${escapeHtml(report.programLabel)}</span></div>
+        <div><strong>Grado</strong><span>${escapeHtml(report.gradeLabel)}</span></div>
+        <div><strong>Técnicas</strong><span>${report.techniqueCount}</span></div>
+      </section>
+      <div class="study-sections">
+        ${report.sections.map(([section, techniques]) => `
+          <section class="study-section">
+            <h3>${escapeHtml(section || 'Técnicas')}</h3>
+            <ol>
+              ${techniques.map((item) => `
+                <li>
+                  <strong>${escapeHtml(techniqueName(item))}</strong>
+                  ${techniqueSummary(item) ? `<p>${escapeHtml(techniqueSummary(item))}</p>` : ''}
+                </li>
+              `).join('')}
+            </ol>
+          </section>
+        `).join('')}
+      </div>
+    </article>
+  `;
+
+  $('#backToDetails').addEventListener('click', renderExamDetails);
+  $('#printStudyReport').addEventListener('click', () => window.print());
+  $('#downloadStudyPdf').addEventListener('click', () => downloadStudyExamPdf(report));
+}
+
 function renderPrintableEvaluation(evaluationId) {
   const exam = state.selectedExam;
   const evaluation = exam.evaluations.find((item) => item.id === evaluationId);
@@ -1561,6 +1624,72 @@ function safeFileName(value) {
     .replace(/[^a-zA-Z0-9_-]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .toLowerCase();
+}
+
+function downloadStudyExamPdf(report) {
+  const jsPdf = window.jspdf?.jsPDF;
+  if (!jsPdf) {
+    showErrors('No se pudo cargar el generador de PDF. Usa el botón Imprimir y elige Guardar como PDF.');
+    return;
+  }
+
+  const doc = new jsPdf({ unit: 'pt', format: 'a4' });
+  const margin = 42;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  let y = 46;
+
+  const addText = (text, x, yy, options = {}) => {
+    doc.setFont('helvetica', options.bold ? 'bold' : 'normal');
+    doc.setFontSize(options.size || 10);
+    doc.setTextColor(...(options.color || [17, 24, 39]));
+    doc.text(String(text || ''), x, yy, options);
+  };
+
+  const addWrapped = (text, x, yy, width, options = {}) => {
+    const lines = doc.splitTextToSize(String(text || ''), width);
+    addText(lines, x, yy, options);
+    return yy + (lines.length * ((options.size || 10) + 4));
+  };
+
+  const ensureSpace = (needed) => {
+    if (y + needed <= pageHeight - margin) return;
+    doc.addPage();
+    y = margin;
+  };
+
+  addText('TEMARIO DE ESTUDIO SKBC', margin, y, { size: 12, bold: true, color: [25, 118, 210] });
+  y += 30;
+  addText(report.clubName || 'Club SKBC', margin, y, { size: 22, bold: true, color: [18, 79, 141] });
+  y += 26;
+  addText(report.examTitle, margin, y, { size: 14, bold: true, color: [75, 93, 115] });
+  y += 22;
+  addText(`${report.programLabel} · ${report.gradeLabel} · ${report.techniqueCount} técnicas`, margin, y, { size: 10, color: [75, 93, 115] });
+  y += 20;
+  doc.setDrawColor(25, 118, 210);
+  doc.setLineWidth(2);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 28;
+
+  report.sections.forEach(([section, techniques]) => {
+    ensureSpace(48);
+    addText(section || 'Técnicas', margin, y, { size: 13, bold: true, color: [18, 55, 94] });
+    y += 20;
+
+    techniques.forEach((item, index) => {
+      const summary = techniqueSummary(item);
+      ensureSpace(summary ? 70 : 34);
+      y = addWrapped(`${index + 1}. ${techniqueName(item)}`, margin + 10, y, pageWidth - margin * 2 - 10, { size: 10, bold: true });
+      if (summary) {
+        y = addWrapped(summary, margin + 26, y + 2, pageWidth - margin * 2 - 26, { size: 9, color: [75, 85, 99] });
+      }
+      y += 10;
+    });
+
+    y += 8;
+  });
+
+  doc.save(`${safeFileName(report.examTitle)}-temario.pdf`);
 }
 
 function downloadEvaluationPdf(report) {
@@ -1947,6 +2076,7 @@ init().catch((error) => {
   console.error(error);
   app.innerHTML = `<section class="auth-card"><div class="notice error">${escapeHtml(error.message)}</div></section>`;
 });
+
 
 
 
