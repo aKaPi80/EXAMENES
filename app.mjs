@@ -31,6 +31,8 @@ const state = {
   professor: null,
   activeTab: 'config',
   exams: [],
+  examFolders: [],
+  activeExamFolderId: 'all',
   selectedExam: null,
   examinerPayload: null,
   examinerTechniqueIndex: 0,
@@ -360,6 +362,8 @@ async function saveConfig(event) {
 
 async function loadExams() {
   if (!state.professor) return;
+  await loadExamFolders();
+
   const { data, error } = await supabase
     .from('exams')
     .select('*')
@@ -375,25 +379,62 @@ async function loadExams() {
   renderActiveTab();
 }
 
+async function loadExamFolders() {
+  if (!state.professor) return;
+
+  const { data, error } = await supabase
+    .from('exam_folders')
+    .select('*')
+    .eq('professor_id', state.professor.id)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    showErrors(`Falta activar carpetas en Supabase: ${error.message}`);
+    state.examFolders = [];
+    return;
+  }
+
+  state.examFolders = data || [];
+}
+
 function renderExamList() {
+  const exams = filteredExams();
   $('#panelContent').innerHTML = `
     <div class="section-head">
       <div>
         <h2>Mis exámenes</h2>
-        <p>Gestiona estado, enlaces de examinador y detalles.</p>
+        <p>Organiza convocatorias por carpetas y gestiona enlaces de examinador.</p>
       </div>
       <button class="btn btn-primary" id="newExamBtn">Crear examen</button>
     </div>
-    <div class="exam-grid">
-      ${state.exams.length ? state.exams.map(renderExamCard).join('') : '<div class="empty">Todavía no hay exámenes creados.</div>'}
+    <div class="folder-layout">
+      ${renderFolderPanel()}
+      <div>
+        <div class="folder-current">
+          <strong>${escapeHtml(currentFolderTitle())}</strong>
+          <span>${exams.length} examen${exams.length === 1 ? '' : 'es'}</span>
+        </div>
+        <div class="exam-grid">
+          ${exams.length ? exams.map(renderExamCard).join('') : '<div class="empty">No hay exámenes en esta carpeta.</div>'}
+        </div>
+      </div>
     </div>
   `;
 
   $('#newExamBtn').addEventListener('click', () => switchTab('create'));
+  $('#folderForm').addEventListener('submit', createExamFolder);
+  $$('.folder-filter').forEach((button) => button.addEventListener('click', () => {
+    state.activeExamFolderId = button.dataset.folderId;
+    renderExamList();
+  }));
+  $$('.rename-folder').forEach((button) => button.addEventListener('click', () => renameExamFolder(button.dataset.id)));
+  $$('.delete-folder').forEach((button) => button.addEventListener('click', () => deleteExamFolder(button.dataset.id)));
   $$('.view-exam').forEach((button) => button.addEventListener('click', () => viewExamDetails(button.dataset.id)));
   $$('.duplicate-exam').forEach((button) => button.addEventListener('click', () => duplicateExam(button.dataset.id)));
   $$('.delete-exam').forEach((button) => button.addEventListener('click', () => deleteExam(button.dataset.id)));
   $$('.status-select').forEach((select) => select.addEventListener('change', () => updateExamStatus(select.dataset.id, select.value)));
+  $$('.folder-select').forEach((select) => select.addEventListener('change', () => moveExamToFolder(select.dataset.id, select.value)));
 }
 
 function renderExamCard(exam) {
@@ -401,9 +442,16 @@ function renderExamCard(exam) {
     <article class="card">
       <h3>${escapeHtml(exam.title)}</h3>
       <p><strong>Grado:</strong> ${escapeHtml(gradeLabel(exam.grade))}</p>
+      <p><strong>Carpeta:</strong> ${escapeHtml(folderName(exam.folder_id))}</p>
       <p><strong>Técnicas:</strong> ${(exam.techniques || []).length}</p>
       <p><strong>Aprobación:</strong> ${exam.pass_percentage}%</p>
       <span class="status ${escapeHtml(exam.status || 'draft')}">${escapeHtml(exam.status || 'draft')}</span>
+      <div class="field" style="margin-top:12px">
+        <label>Carpeta</label>
+        <select class="folder-select" data-id="${exam.id}">
+          ${folderOptions(exam.folder_id)}
+        </select>
+      </div>
       <div class="field" style="margin-top:12px">
         <label>Estado</label>
         <select class="status-select" data-id="${exam.id}">
@@ -417,6 +465,151 @@ function renderExamCard(exam) {
       </div>
     </article>
   `;
+}
+
+function renderFolderPanel() {
+  const folderButtons = state.examFolders.map((folder) => `
+    <div class="folder-row">
+      <button class="folder-filter ${state.activeExamFolderId === folder.id ? 'active' : ''}" data-folder-id="${folder.id}">
+        <span>${escapeHtml(folder.name)}</span>
+        <small>${folderExamCount(folder.id)}</small>
+      </button>
+      <button class="folder-icon rename-folder" data-id="${folder.id}" title="Renombrar carpeta" type="button">Editar</button>
+      <button class="folder-icon delete-folder" data-id="${folder.id}" title="Eliminar carpeta" type="button">Borrar</button>
+    </div>
+  `).join('');
+
+  return `
+    <aside class="folder-panel">
+      <h3>Carpetas</h3>
+      <button class="folder-filter ${state.activeExamFolderId === 'all' ? 'active' : ''}" data-folder-id="all" type="button">
+        <span>Todos</span>
+        <small>${state.exams.length}</small>
+      </button>
+      <button class="folder-filter ${state.activeExamFolderId === 'unfiled' ? 'active' : ''}" data-folder-id="unfiled" type="button">
+        <span>Sin carpeta</span>
+        <small>${folderExamCount(null)}</small>
+      </button>
+      <div class="folder-list">${folderButtons || '<p class="helper-text">Crea carpetas para ordenar tus convocatorias.</p>'}</div>
+      <form id="folderForm" class="folder-form">
+        <label for="folderName">Nueva carpeta</label>
+        <div class="folder-form-row">
+          <input id="folderName" placeholder="Ej. Exámenes 2026" required />
+          <button class="btn btn-primary btn-small" type="submit">Crear</button>
+        </div>
+      </form>
+    </aside>
+  `;
+}
+
+function filteredExams() {
+  if (state.activeExamFolderId === 'all') return state.exams;
+  if (state.activeExamFolderId === 'unfiled') return state.exams.filter((exam) => !exam.folder_id);
+  return state.exams.filter((exam) => exam.folder_id === state.activeExamFolderId);
+}
+
+function currentFolderTitle() {
+  if (state.activeExamFolderId === 'all') return 'Todos los exámenes';
+  if (state.activeExamFolderId === 'unfiled') return 'Exámenes sin carpeta';
+  return folderName(state.activeExamFolderId);
+}
+
+function folderName(folderId) {
+  if (!folderId) return 'Sin carpeta';
+  return state.examFolders.find((folder) => folder.id === folderId)?.name || 'Carpeta eliminada';
+}
+
+function folderExamCount(folderId) {
+  return state.exams.filter((exam) => folderId ? exam.folder_id === folderId : !exam.folder_id).length;
+}
+
+function folderOptions(selectedFolderId) {
+  return [
+    `<option value="" ${!selectedFolderId ? 'selected' : ''}>Sin carpeta</option>`,
+    ...state.examFolders.map((folder) => `<option value="${folder.id}" ${selectedFolderId === folder.id ? 'selected' : ''}>${escapeHtml(folder.name)}</option>`),
+  ].join('');
+}
+
+async function createExamFolder(event) {
+  event.preventDefault();
+  const input = $('#folderName');
+  const name = input.value.trim();
+  if (!name) return;
+
+  const { error } = await supabase
+    .from('exam_folders')
+    .insert({
+      professor_id: state.professor.id,
+      name,
+      sort_order: state.examFolders.length + 1,
+    });
+
+  if (error) {
+    showErrors(error.message);
+    return;
+  }
+
+  input.value = '';
+  await loadExams();
+  notify('Carpeta creada.');
+}
+
+async function renameExamFolder(folderId) {
+  const folder = state.examFolders.find((item) => item.id === folderId);
+  if (!folder) return;
+
+  const name = (prompt('Nuevo nombre de la carpeta:', folder.name) || '').trim();
+  if (!name || name === folder.name) return;
+
+  const { error } = await supabase
+    .from('exam_folders')
+    .update({ name })
+    .eq('id', folderId);
+
+  if (error) {
+    showErrors(error.message);
+    return;
+  }
+
+  await loadExams();
+  notify('Carpeta renombrada.');
+}
+
+async function deleteExamFolder(folderId) {
+  const folder = state.examFolders.find((item) => item.id === folderId);
+  if (!folder) return;
+
+  if (folderExamCount(folderId) > 0) {
+    showErrors('Antes de borrar esta carpeta, mueve sus exámenes a otra carpeta o a Sin carpeta.');
+    return;
+  }
+
+  if (!confirm(`¿Eliminar la carpeta "${folder.name}"?`)) return;
+
+  const { error } = await supabase.from('exam_folders').delete().eq('id', folderId);
+  if (error) {
+    showErrors(error.message);
+    return;
+  }
+
+  state.activeExamFolderId = 'all';
+  await loadExams();
+  notify('Carpeta eliminada.');
+}
+
+async function moveExamToFolder(examId, folderId) {
+  const { error } = await supabase
+    .from('exams')
+    .update({ folder_id: folderId || null })
+    .eq('id', examId);
+
+  if (error) {
+    showErrors(error.message);
+    return;
+  }
+
+  await loadExams();
+  notify('Examen movido.');
 }
 
 function renderCreateExam() {
@@ -449,6 +642,12 @@ function renderCreateExam() {
         <div class="field">
           <label for="passPercentage">Aprobación: <span id="passLabel">65%</span></label>
           <input id="passPercentage" type="range" min="40" max="90" value="65" />
+        </div>
+        <div class="field">
+          <label for="examFolder">Carpeta</label>
+          <select id="examFolder">
+            ${folderOptions(template?.folder_id || null)}
+          </select>
         </div>
       </div>
       <div class="notice" id="gradeHelp">Selecciona el grado objetivo del examen: Minarai/Blanco examina 5 KYU, 5 KYU examina 4 KYU, 4 KYU examina 3 KYU, y así sucesivamente.</div>
@@ -484,6 +683,7 @@ function renderCreateExam() {
     populateExamGradeOptions();
     $('#examGrade').value = template.grade || '';
     $('#passPercentage').value = Number(template.pass_percentage || 65);
+    $('#examFolder').value = template.folder_id || '';
     $('#passLabel').textContent = `${$('#passPercentage').value}%`;
     renderTemplateTechniques(template);
     state.examTemplateDraft = null;
@@ -1092,6 +1292,7 @@ function collectDraft() {
   const grade = $('#examGrade').value;
   return {
     title: $('#examTitle').value.trim(),
+    folderId: $('#examFolder')?.value || null,
     programType,
     grade,
     sourceGrade: sourceGradeForExamGrade(grade, programType),
@@ -1173,6 +1374,7 @@ async function createExam(event) {
       grade: draft.grade,
       program_type: draft.programType,
       source_grade: draft.sourceGrade,
+      folder_id: draft.folderId,
       techniques: draft.techniques,
       pass_percentage: draft.passPercentage,
       status: 'active',
@@ -1862,6 +2064,7 @@ async function duplicateExam(examId) {
     program_type: exam.program_type || 'adultos',
     grade: exam.grade,
     source_grade: exam.source_grade || exam.grade,
+    folder_id: exam.folder_id || null,
     techniques: JSON.parse(JSON.stringify(exam.techniques || [])),
     pass_percentage: exam.pass_percentage || 65,
   };
@@ -1881,10 +2084,12 @@ async function deleteExam(examId) {
 }
 
 function renderResults() {
-  const examsWithResults = state.exams.map((exam) => `
+  const exams = filteredExams();
+  const examsWithResults = exams.map((exam) => `
     <article class="card">
       <h3>${escapeHtml(exam.title)}</h3>
       <p>${escapeHtml(gradeLabel(exam.grade))}</p>
+      <p>${escapeHtml(folderName(exam.folder_id))}</p>
       <button class="btn btn-primary btn-small view-exam" data-id="${exam.id}">Ver resultados</button>
     </article>
   `).join('');
@@ -1896,8 +2101,24 @@ function renderResults() {
         <p>Abre un examen para revisar evaluaciones, notas y aprobados.</p>
       </div>
     </div>
-    <div class="exam-grid">${examsWithResults || '<div class="empty">No hay exámenes todavía.</div>'}</div>
+    <div class="folder-layout">
+      ${renderFolderPanel()}
+      <div>
+        <div class="folder-current">
+          <strong>${escapeHtml(currentFolderTitle())}</strong>
+          <span>${exams.length} examen${exams.length === 1 ? '' : 'es'}</span>
+        </div>
+        <div class="exam-grid">${examsWithResults || '<div class="empty">No hay resultados en esta carpeta.</div>'}</div>
+      </div>
+    </div>
   `;
+  $('#folderForm').addEventListener('submit', createExamFolder);
+  $$('.folder-filter').forEach((button) => button.addEventListener('click', () => {
+    state.activeExamFolderId = button.dataset.folderId;
+    renderResults();
+  }));
+  $$('.rename-folder').forEach((button) => button.addEventListener('click', () => renameExamFolder(button.dataset.id)));
+  $$('.delete-folder').forEach((button) => button.addEventListener('click', () => deleteExamFolder(button.dataset.id)));
   $$('.view-exam').forEach((button) => button.addEventListener('click', () => viewExamDetails(button.dataset.id)));
 }
 
@@ -2103,6 +2324,4 @@ init().catch((error) => {
   console.error(error);
   app.innerHTML = `<section class="auth-card"><div class="notice error">${escapeHtml(error.message)}</div></section>`;
 });
-
-
 
