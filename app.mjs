@@ -21,7 +21,7 @@
   techniqueSection,
   techniqueSummary,
   validateExamDraft,
-} from './exam-core.mjs?v=20260608-student-report-2';
+} from './exam-core.mjs?v=20260608-belt-order-1';
 
 const app = document.getElementById('app');
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1475,6 +1475,7 @@ function renderExamDetails() {
       </div>
       <div class="btn-row">
         <button class="btn btn-secondary" id="printStudyExam">Imprimir temario para alumnos</button>
+        <button class="btn btn-secondary" id="beltOrderBtn">Añadir a pedido de cinturones</button>
         <button class="btn btn-success" id="registerPassed">Registrar aprobados en base de datos</button>
         <button class="btn btn-secondary" id="backToExams">Volver</button>
       </div>
@@ -1506,6 +1507,7 @@ function renderExamDetails() {
   `;
   $('#backToExams').addEventListener('click', renderExamList);
   $('#printStudyExam').addEventListener('click', renderPrintableStudyExam);
+  $('#beltOrderBtn').addEventListener('click', openBeltOrderDialog);
   $('#registerPassed').addEventListener('click', registerPassedStudentsInSheet);
   $$('.copy-link').forEach((button) => {
     button.addEventListener('click', () => copyLink(button.dataset.url));
@@ -1657,6 +1659,230 @@ async function registerPassedStudentsInSheet() {
   }
 
   notify('Aprobados enviados a Google Sheets. Revisa la pestaña EXAMENES.');
+}
+
+function beltOrderColorForExamGrade(grade) {
+  const labels = {
+    '5kyu': 'Amarillo',
+    '4kyu': 'Naranja',
+    '3kyu': 'Verde',
+    '2kyu': 'Azul',
+    '1kyu': 'Marron',
+    shodan: 'Negro',
+    nidan: 'Negro',
+    sandan: 'Negro',
+    yondan: 'Negro',
+    godan: 'Negro',
+    children_blanco_amarillo: 'Blanco-Amarillo',
+    children_5kyu: 'Amarillo',
+    children_amarillo_naranja: 'Amarillo-Naranja',
+    children_4kyu: 'Naranja',
+    children_naranja_verde: 'Naranja-Verde',
+    children_3kyu: 'Verde',
+    children_verde_azul: 'Verde-Azul',
+    children_2kyu: 'Azul',
+    children_azul_marron: 'Azul-Marron',
+    children_1kyu: 'Marron',
+  };
+  return labels[grade] || gradeLabel(grade);
+}
+
+function defaultBeltSizeForExam(exam) {
+  return exam?.program_type === 'ninos' ? '240cm' : '300cm';
+}
+
+function buildDefaultBeltOrderItems(exam) {
+  const color = beltOrderColorForExamGrade(exam.grade);
+  const size = defaultBeltSizeForExam(exam);
+  return (exam.students || []).map((student) => ({
+    studentName: student.student_name || '',
+    studentRef: student.student_ref || '',
+    studentSourceId: student.student_source_id || '',
+    currentBelt: student.student_belt_color || '',
+    item: 'Cinturon',
+    color,
+    size,
+    quantity: 1,
+    notes: '',
+  }));
+}
+
+function beltOrderRowTemplate(item = {}) {
+  return `
+    <div class="belt-order-row row-card">
+      <div class="field">
+        <label>Alumno / concepto</label>
+        <input class="belt-order-student" value="${escapeHtml(item.studentName || '')}" placeholder="Ej. Ivan Calvo / Bolsa / Escudo" />
+      </div>
+      <div class="field">
+        <label>Articulo</label>
+        <input class="belt-order-item" value="${escapeHtml(item.item || 'Cinturon')}" />
+      </div>
+      <div class="field">
+        <label>Color</label>
+        <input class="belt-order-color" value="${escapeHtml(item.color || '')}" placeholder="Amarillo, naranja..." />
+      </div>
+      <div class="field">
+        <label>Medida</label>
+        <input class="belt-order-size" value="${escapeHtml(item.size || '')}" placeholder="240cm, 300cm..." />
+      </div>
+      <div class="field">
+        <label>Cantidad</label>
+        <input class="belt-order-quantity" type="number" min="1" step="1" value="${escapeHtml(item.quantity || 1)}" />
+      </div>
+      <div class="field belt-order-notes-field">
+        <label>Notas</label>
+        <input class="belt-order-notes" value="${escapeHtml(item.notes || '')}" placeholder="Cambio de talla, pedido especial..." />
+      </div>
+      <input class="belt-order-ref" type="hidden" value="${escapeHtml(item.studentRef || '')}" />
+      <input class="belt-order-source-id" type="hidden" value="${escapeHtml(item.studentSourceId || '')}" />
+      <button class="btn btn-secondary btn-small remove-belt-order-row" type="button">Quitar</button>
+    </div>
+  `;
+}
+
+function collectBeltOrderItems() {
+  return $$('.belt-order-row').map((row) => ({
+    studentName: $('.belt-order-student', row)?.value.trim() || '',
+    studentRef: $('.belt-order-ref', row)?.value.trim() || '',
+    studentSourceId: $('.belt-order-source-id', row)?.value.trim() || '',
+    item: $('.belt-order-item', row)?.value.trim() || 'Cinturon',
+    color: $('.belt-order-color', row)?.value.trim() || '',
+    size: $('.belt-order-size', row)?.value.trim() || '',
+    quantity: Math.max(1, Number($('.belt-order-quantity', row)?.value || 1) || 1),
+    notes: $('.belt-order-notes', row)?.value.trim() || '',
+  })).filter((item) => item.studentName || item.item || item.color);
+}
+
+function renderBeltOrderSummary() {
+  const summary = new Map();
+  collectBeltOrderItems().forEach((item) => {
+    const key = `${item.item || 'Cinturon'}|${item.color || 'Sin color'}|${item.size || 'Sin medida'}`;
+    summary.set(key, (summary.get(key) || 0) + item.quantity);
+  });
+
+  const lines = [...summary.entries()].map(([key, quantity]) => {
+    const [item, color, size] = key.split('|');
+    return `<li><strong>${escapeHtml(quantity)}</strong> ${escapeHtml(item)} · ${escapeHtml(color)} · ${escapeHtml(size)}</li>`;
+  });
+
+  $('#beltOrderSummary').innerHTML = lines.length
+    ? `<ul>${lines.join('')}</ul>`
+    : '<p class="helper-text">Añade líneas para ver el resumen del pedido.</p>';
+}
+
+function bindBeltOrderDialogEvents() {
+  $$('.remove-belt-order-row').forEach((button) => {
+    button.onclick = () => {
+      button.closest('.belt-order-row')?.remove();
+      renderBeltOrderSummary();
+    };
+  });
+
+  $$('.belt-order-row input').forEach((input) => {
+    input.addEventListener('input', renderBeltOrderSummary);
+  });
+}
+
+function closeBeltOrderDialog() {
+  $('.dialog-backdrop')?.remove();
+}
+
+function openBeltOrderDialog() {
+  const exam = state.selectedExam;
+  if (!exam) return;
+
+  const rows = buildDefaultBeltOrderItems(exam).map(beltOrderRowTemplate).join('');
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="dialog-backdrop">
+      <section class="dialog-card belt-order-dialog" role="dialog" aria-modal="true" aria-labelledby="beltOrderTitle">
+        <div class="dialog-head">
+          <div>
+            <h2 id="beltOrderTitle">Pedido de cinturones</h2>
+            <p>${escapeHtml(exam.title)} · ${escapeHtml(gradeLabel(exam.grade))} · ${exam.program_type === 'ninos' ? 'Niños' : 'Adultos'}</p>
+          </div>
+          <button class="btn btn-secondary btn-small" id="closeBeltOrderDialog" type="button">Cerrar</button>
+        </div>
+        <div class="notice">Revisa colores, tallas y cantidades antes de enviar. Niños salen por defecto con 240cm y adultos con 300cm.</div>
+        <div class="belt-order-layout">
+          <div>
+            <div class="belt-order-list" id="beltOrderRows">${rows}</div>
+            <button class="btn btn-secondary btn-small" id="addBeltOrderRow" type="button">Añadir línea manual</button>
+          </div>
+          <aside class="belt-order-summary card">
+            <h3>Resumen del pedido</h3>
+            <div id="beltOrderSummary"></div>
+          </aside>
+        </div>
+        <div class="dialog-actions">
+          <button class="btn btn-secondary" id="cancelBeltOrder" type="button">Cancelar</button>
+          <button class="btn btn-success" id="sendBeltOrder" type="button">Volcar a hoja de pedido</button>
+        </div>
+      </section>
+    </div>
+  `);
+
+  $('#closeBeltOrderDialog').addEventListener('click', closeBeltOrderDialog);
+  $('#cancelBeltOrder').addEventListener('click', closeBeltOrderDialog);
+  $('#addBeltOrderRow').addEventListener('click', () => {
+    $('#beltOrderRows').insertAdjacentHTML('beforeend', beltOrderRowTemplate({
+      item: 'Cinturon',
+      size: defaultBeltSizeForExam(exam),
+      quantity: 1,
+    }));
+    bindBeltOrderDialogEvents();
+    renderBeltOrderSummary();
+  });
+  $('#sendBeltOrder').addEventListener('click', sendBeltOrderToSheet);
+  bindBeltOrderDialogEvents();
+  renderBeltOrderSummary();
+}
+
+async function sendBeltOrderToSheet() {
+  const exam = state.selectedExam;
+  if (!exam) return;
+
+  const items = collectBeltOrderItems();
+  if (!items.length) {
+    showErrors('No hay líneas para enviar al pedido.');
+    return;
+  }
+
+  const savedToken = localStorage.getItem('skbcSheetToken') || '';
+  const token = (prompt('Pega el token configurado en Apps Script para el pedido de cinturones:', savedToken) || '').trim();
+  if (!token) return;
+  localStorage.setItem('skbcSheetToken', token);
+
+  if (!confirm(`Se enviarán ${items.length} línea(s) a la hoja de pedido de cinturones. ¿Continuar?`)) {
+    return;
+  }
+
+  const payload = {
+    accion: 'REGISTRAR_PEDIDO_CINTURONES_WEB',
+    token,
+    pedido: {
+      examId: exam.id,
+      examTitle: exam.title,
+      programa: exam.program_type || 'adultos',
+      grado: gradeSheetLabel(exam.grade),
+      creadoPor: state.professor?.name || state.professor?.email || 'Sistema exámenes SKBC',
+      fechaPedido: new Date().toISOString(),
+      items,
+    },
+  };
+
+  try {
+    await fetch(EXAM_SHEET_WEBAPP_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload),
+    });
+    closeBeltOrderDialog();
+    notify('Pedido enviado a Apps Script. Revisa la hoja de pedido de cinturones.');
+  } catch (error) {
+    showErrors('No se pudo enviar el pedido de cinturones.');
+  }
 }
 
 function buildStudyExamReport(exam) {

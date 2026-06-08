@@ -199,6 +199,84 @@ button, input, select, textarea { font: inherit; }
 .btn-small { min-height: 34px; padding: 7px 10px; font-size: 0.88rem; }
 .btn-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  background: rgba(15, 25, 39, 0.42);
+}
+
+.dialog-card {
+  width: min(1180px, 100%);
+  max-height: calc(100vh - 44px);
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  padding: 22px;
+}
+
+.dialog-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.dialog-head h2 { margin: 0; color: var(--blue-dark); }
+.dialog-head p { margin: 4px 0 0; color: var(--muted); }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+
+.belt-order-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 16px;
+  align-items: start;
+}
+
+.belt-order-list {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.belt-order-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.5fr) minmax(120px, 0.8fr) minmax(120px, 0.8fr) 100px 90px minmax(160px, 1.2fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.belt-order-row .field {
+  margin-bottom: 0;
+}
+
+.belt-order-row label {
+  font-size: 0.78rem;
+}
+
+.belt-order-summary {
+  position: sticky;
+  top: 12px;
+}
+
+.belt-order-summary h3 {
+  margin-top: 0;
+  color: var(--blue-dark);
+}
+
+.belt-order-summary ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+}
+
 .notice {
   padding: 13px 15px;
   border-radius: 6px;
@@ -1056,6 +1134,11 @@ button, input, select, textarea { font: inherit; }
   .grid-2, .grid-3, .details-layout, .score-row, .folder-layout { grid-template-columns: 1fr; }
   .row-card, .examiner-row, .custom-technique-row, .previous-technique-picker, .link-copy-row { grid-template-columns: 1fr; }
   .score-options { grid-template-columns: repeat(2, 1fr); }
+  .dialog-backdrop { padding: 10px; align-items: start; }
+  .dialog-card { max-height: calc(100vh - 20px); padding: 16px; }
+  .dialog-head { flex-direction: column; }
+  .belt-order-layout, .belt-order-row { grid-template-columns: 1fr; }
+  .belt-order-summary { position: static; }
   .tech-block-head { align-items: stretch; flex-direction: column; }
   .technique-stage { flex-direction: column; align-items: flex-start; }
   .print-report-head, .print-toolbar { flex-direction: column; }
