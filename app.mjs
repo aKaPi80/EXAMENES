@@ -21,7 +21,7 @@
   techniqueSection,
   techniqueSummary,
   validateExamDraft,
-} from './exam-core.mjs?v=20260518-study-print-3';
+} from './exam-core.mjs?v=20260608-student-report-2';
 
 const app = document.getElementById('app');
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1725,6 +1725,56 @@ function renderPrintableStudyExam() {
   $('#downloadStudyPdf').addEventListener('click', () => downloadStudyExamPdf(report));
 }
 
+function buildStudentImprovementItems(techniqueEvaluations) {
+  return (techniqueEvaluations || [])
+    .filter((item) => !item.skipped)
+    .map((item) => {
+      const rawScore = item.score ?? item.technique_score ?? item.points ?? item.value;
+      const score = Number(rawScore);
+      const notes = String(item.notes || '').trim();
+      const needsWork = Number.isFinite(score) && score < 10;
+      if (!needsWork && !notes) return null;
+
+      let levelLabel = 'Comentario';
+      let levelClass = 'comment';
+      let sortValue = Number.isFinite(score) ? score : 10;
+      let defaultAdvice = 'Revisar la indicación del examinador.';
+
+      if (Number.isFinite(score) && score <= 0) {
+        levelLabel = 'Prioritario';
+        levelClass = 'high';
+        defaultAdvice = 'Reforzar desde la base: forma, distancia, control y finalización.';
+      } else if (Number.isFinite(score) && score <= 5) {
+        levelLabel = 'A mejorar';
+        levelClass = 'medium';
+        defaultAdvice = 'Pulir los detalles principales y repetir con atención técnica.';
+      }
+
+      return {
+        name: techniqueName(item),
+        section: techniqueSection(item),
+        notes,
+        defaultAdvice,
+        levelLabel,
+        levelClass,
+        sortValue,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.sortValue - b.sortValue || a.name.localeCompare(b.name))
+    .slice(0, 6);
+}
+
+function studentReportIntro(report) {
+  if (!report.improvementItems.length) {
+    return 'Buen trabajo. No se han marcado prioridades concretas en esta evaluación.';
+  }
+  if (report.summary.passed) {
+    return 'Has aprobado. Estas son las prioridades principales para seguir mejorando con claridad en el próximo ciclo.';
+  }
+  return 'Necesitas intentarlo una vez más. Trabaja especialmente estos puntos antes de la próxima valoración.';
+}
+
 function renderPrintableEvaluation(evaluationId) {
   const exam = state.selectedExam;
   const evaluation = exam.evaluations.find((item) => item.id === evaluationId);
@@ -1742,6 +1792,8 @@ function renderPrintableEvaluation(evaluationId) {
     adjustmentPoints: evaluationAdjustmentPoints(evaluation),
     submittedAt: evaluation.submitted_at || evaluation.created_at || new Date().toISOString(),
   });
+  report.logoUrl = state.professor.logo_url || '';
+  report.improvementItems = buildStudentImprovementItems(report.techniqueEvaluations);
 
   state.printReport = report;
   $('#panelContent').innerHTML = `
@@ -1752,64 +1804,77 @@ function renderPrintableEvaluation(evaluationId) {
         <button class="btn btn-primary" id="downloadPdf">Descargar PDF</button>
       </div>
     </div>
-    <article class="print-report">
-      <header class="print-report-head">
-        <div>
-          <p class="print-kicker">Evaluación SKBC</p>
-          <h1>${escapeHtml(report.clubName || 'Club SKBC')}</h1>
-          <h2>${escapeHtml(report.examTitle)}</h2>
+    <article class="print-report student-report">
+      <header class="student-report-head">
+        <div class="student-report-brand">
+          <div class="student-report-logo">
+            ${report.logoUrl ? `<img src="${escapeHtml(report.logoUrl)}" alt="Logo club" />` : 'SKBC'}
+          </div>
+          <div>
+            <p class="print-kicker">Informe del alumno</p>
+            <h1>${escapeHtml(report.clubName || 'Club SKBC')}</h1>
+            <h2>${escapeHtml(report.examTitle)}</h2>
+          </div>
         </div>
         <div class="print-result ${report.summary.passed ? 'passed' : 'failed'}">
           ${report.summary.passed ? 'APROBADO' : 'NECESITA INTENTARLO UNA VEZ MÁS'}
         </div>
       </header>
-      <section class="print-meta">
-        <div><strong>Alumno</strong><span>${escapeHtml(report.studentName)}</span></div>
-        <div><strong>Cinturón</strong><span>${escapeHtml(report.beltColor || '-')}</span></div>
-        <div><strong>Grado</strong><span>${escapeHtml(report.gradeLabel)}</span></div>
-        <div><strong>Examinador</strong><span>${escapeHtml(report.examinerName || '-')}</span></div>
-        <div><strong>Fecha</strong><span>${formatDate(report.submittedAt)}</span></div>
-        <div><strong>Mínimo</strong><span>${report.passPercentage}%</span></div>
-      </section>
-      <section class="print-score">
+      <section class="student-summary-band">
         <div>
-          <strong>${report.summary.totalScore}/${report.summary.maxScore}</strong>
-          <span>puntos</span>
+          <span>Alumno</span>
+          <strong>${escapeHtml(report.studentName)}</strong>
         </div>
         <div>
+          <span>Grado</span>
+          <strong>${escapeHtml(report.gradeLabel)}</strong>
+        </div>
+        <div>
+          <span>Fecha</span>
+          <strong>${escapeHtml(formatDate(report.submittedAt))}</strong>
+        </div>
+        <div>
+          <span>Resultado final</span>
           <strong>${report.summary.percentage}%</strong>
-          <span>porcentaje final</span>
-        </div>
-        <div>
-          <strong>${report.evaluatedCount}</strong>
-          <span>técnicas contadas</span>
-        </div>
-        <div>
-          <strong>${report.skippedCount}</strong>
-          <span>omitidas</span>
         </div>
       </section>
-      <table class="print-table">
-        <thead>
-          <tr>
-            <th>Técnica</th>
-            <th>Puntuación</th>
-            <th>Observaciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${report.techniqueEvaluations.map((item) => `
+      <section class="student-message">
+        <h3>Plan de mejora recomendado</h3>
+        <p>${escapeHtml(studentReportIntro(report))}</p>
+      </section>
+      ${report.improvementItems.length ? `
+        <table class="student-focus-table">
+          <thead>
             <tr>
-              <td>${escapeHtml(techniqueName(item))}${techniqueSection(item) ? `<br><small>${escapeHtml(techniqueSection(item))}</small>` : ''}</td>
-              <td>${item.skipped ? 'Omitida' : `${item.score} / 10`}</td>
-              <td>${escapeHtml(item.notes || '')}</td>
+              <th>Prioridad</th>
+              <th>Técnica</th>
+              <th>Qué reforzar</th>
             </tr>
-          `).join('')}
-        </tbody>
-      </table>
-      <footer class="print-signatures">
-        <div>Firma examinador</div>
-        <div>Firma alumno / tutor</div>
+          </thead>
+          <tbody>
+            ${report.improvementItems.map((item) => `
+              <tr>
+                <td><span class="focus-badge ${escapeHtml(item.levelClass)}">${escapeHtml(item.levelLabel)}</span></td>
+                <td>
+                  <strong>${escapeHtml(item.name)}</strong>
+                  ${item.section ? `<small>${escapeHtml(item.section)}</small>` : ''}
+                </td>
+                <td>${escapeHtml(item.notes || item.defaultAdvice)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      ` : `
+        <div class="student-empty-focus">
+          No hay técnicas señaladas como prioritarias. Mantén el entrenamiento regular y repasa el temario completo del grado.
+        </div>
+      `}
+      <footer class="student-report-footer">
+        <div>
+          <strong>Próximo paso</strong>
+          <span>Trabaja estas prioridades en clase y pregunta al profesor si tienes dudas.</span>
+        </div>
+        <div class="student-signature">Firma profesor</div>
       </footer>
     </article>
   `;
@@ -1929,10 +1994,11 @@ function downloadEvaluationPdf(report) {
   }
 
   const doc = new jsPdf({ unit: 'pt', format: 'a4' });
-  const margin = 42;
+  const margin = 32;
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  let y = 46;
+  let y = 34;
+  const improvementItems = report.improvementItems || buildStudentImprovementItems(report.techniqueEvaluations);
 
   const addText = (text, x, yy, options = {}) => {
     doc.setFont('helvetica', options.bold ? 'bold' : 'normal');
@@ -1953,90 +2019,97 @@ function downloadEvaluationPdf(report) {
     y = margin;
   };
 
-  addText('EVALUACION SKBC', margin, y, { size: 12, bold: true, color: [25, 118, 210] });
-  y += 30;
-  addText(report.clubName || 'Club SKBC', margin, y, { size: 22, bold: true, color: [18, 79, 141] });
-  y += 26;
-  addText(report.examTitle, margin, y, { size: 14, bold: true, color: [75, 93, 115] });
+  doc.setFillColor(248, 251, 253);
+  doc.roundedRect(margin, y, pageWidth - margin * 2, 82, 8, 8, 'F');
+  if (report.logoUrl) {
+    try {
+      const logoFormat = String(report.logoUrl).includes('image/jpeg') || String(report.logoUrl).includes('image/jpg') ? 'JPEG' : 'PNG';
+      doc.addImage(report.logoUrl, logoFormat, margin + 14, y + 14, 46, 46);
+    } catch (error) {
+      addText('SKBC', margin + 22, y + 40, { size: 12, bold: true, color: [18, 79, 141] });
+    }
+  } else {
+    addText('SKBC', margin + 20, y + 40, { size: 12, bold: true, color: [18, 79, 141] });
+  }
+
+  addText('INFORME DEL ALUMNO', margin + 72, y + 22, { size: 9, bold: true, color: [25, 118, 210] });
+  addText(report.clubName || 'Club SKBC', margin + 72, y + 43, { size: 17, bold: true, color: [18, 79, 141] });
+  addText(report.examTitle, margin + 72, y + 63, { size: 9, color: [75, 93, 115] });
 
   const resultText = report.summary.passed ? 'APROBADO' : 'NECESITA INTENTARLO UNA VEZ MAS';
   doc.setFillColor(...(report.summary.passed ? [231, 247, 232] : [255, 235, 238]));
-  doc.roundedRect(pageWidth - 245, 58, 200, 36, 6, 6, 'F');
-  addText(resultText, pageWidth - 225, 81, {
-    size: 11,
+  doc.roundedRect(pageWidth - margin - 168, y + 24, 148, 30, 6, 6, 'F');
+  addText(resultText, pageWidth - margin - 94, y + 43, {
+    size: 8,
     bold: true,
     color: report.summary.passed ? [31, 107, 36] : [156, 27, 27],
+    align: 'center',
   });
 
-  y += 26;
+  y += 96;
   doc.setDrawColor(25, 118, 210);
   doc.setLineWidth(2);
   doc.line(margin, y, pageWidth - margin, y);
-  y += 28;
+  y += 22;
 
   const meta = [
     ['Alumno', report.studentName],
-    ['Cinturon', report.beltColor || '-'],
     ['Grado', report.gradeLabel],
-    ['Examinador', report.examinerName || '-'],
     ['Fecha', formatDate(report.submittedAt)],
-    ['Minimo', `${report.passPercentage}%`],
+    ['Resultado final', `${report.summary.percentage}%`],
   ];
 
   meta.forEach(([label, value], index) => {
-    const col = index % 3;
-    const row = Math.floor(index / 3);
-    const x = margin + col * 170;
-    const yy = y + row * 46;
-    addText(label, x, yy, { size: 9, bold: true, color: [93, 111, 131] });
-    addText(value, x, yy + 17, { size: 11 });
-  });
-  y += 112;
-
-  const score = [
-    [`${report.summary.totalScore}/${report.summary.maxScore}`, 'puntos'],
-    [`${report.summary.percentage}%`, 'porcentaje final'],
-    [String(report.evaluatedCount), 'tecnicas contadas'],
-    [String(report.skippedCount), 'omitidas'],
-  ];
-
-  score.forEach(([value, label], index) => {
-    const x = margin + index * 125;
-    addText(value, x, y, { size: 18, bold: true, color: [18, 79, 141] });
-    addText(label, x, y + 17, { size: 9, color: [93, 111, 131] });
+    const boxWidth = (pageWidth - margin * 2 - 18) / 4;
+    const x = margin + index * (boxWidth + 8);
+    doc.setFillColor(248, 251, 253);
+    doc.roundedRect(x, y, boxWidth, 42, 5, 5, 'F');
+    addText(label, x + 9, y + 15, { size: 8, bold: true, color: [93, 111, 131] });
+    addWrapped(value, x + 9, y + 31, boxWidth - 18, { size: 8, bold: index === 0 });
   });
   y += 56;
 
-  addText('Tecnica', margin, y, { bold: true, size: 10, color: [18, 55, 94] });
-  addText('Puntuacion', margin + 245, y, { bold: true, size: 10, color: [18, 55, 94] });
-  addText('Observaciones', margin + 340, y, { bold: true, size: 10, color: [18, 55, 94] });
-  y += 16;
-  doc.setDrawColor(217, 226, 236);
-  doc.line(margin, y, pageWidth - margin, y);
-  y += 18;
+  addText('Plan de mejora recomendado', margin, y, { size: 13, bold: true, color: [18, 55, 94] });
+  y = addWrapped(studentReportIntro({ ...report, improvementItems }), margin, y + 16, pageWidth - margin * 2, { size: 8, color: [75, 85, 99] }) + 10;
 
-  report.techniqueEvaluations.forEach((item) => {
-    ensureSpace(52);
-    const startY = y;
-    y = addWrapped(techniqueName(item), margin, y, 205, { size: 10, bold: true });
-    if (techniqueSection(item)) {
-      y = addWrapped(techniqueSection(item), margin, y, 205, { size: 8, color: [93, 111, 131] });
-    }
-    addText(item.skipped ? 'Omitida' : `${item.score} / 10`, margin + 245, startY, { size: 10 });
-    addWrapped(item.notes || '', margin + 340, startY, pageWidth - margin - 340, { size: 9 });
-    y = Math.max(y, startY + 32);
-    doc.setDrawColor(235, 240, 246);
-    doc.line(margin, y, pageWidth - margin, y);
-    y += 12;
-  });
+  if (improvementItems.length) {
+    const columns = [
+      { label: 'Prioridad', x: margin, width: 82 },
+      { label: 'Técnica', x: margin + 88, width: 172 },
+      { label: 'Qué reforzar', x: margin + 266, width: pageWidth - margin - (margin + 266) },
+    ];
 
-  ensureSpace(74);
-  y += 40;
+    doc.setFillColor(234, 244, 255);
+    doc.rect(margin, y - 12, pageWidth - margin * 2, 22, 'F');
+    columns.forEach((column) => addText(column.label, column.x + 5, y + 2, { size: 8, bold: true, color: [18, 55, 94] }));
+    y += 15;
+
+    improvementItems.forEach((item) => {
+      const advice = item.notes || item.defaultAdvice;
+      const rowHeight = Math.max(30, doc.splitTextToSize(advice, columns[2].width - 12).length * 9 + 16);
+      ensureSpace(rowHeight + 10);
+      doc.setDrawColor(217, 226, 236);
+      doc.rect(margin, y - 10, pageWidth - margin * 2, rowHeight);
+      doc.line(columns[1].x - 4, y - 10, columns[1].x - 4, y - 10 + rowHeight);
+      doc.line(columns[2].x - 4, y - 10, columns[2].x - 4, y - 10 + rowHeight);
+      addText(item.levelLabel, columns[0].x + 6, y + 2, { size: 7, bold: true, color: item.levelClass === 'high' ? [156, 27, 27] : [18, 79, 141] });
+      addWrapped(item.name, columns[1].x + 5, y, columns[1].width - 10, { size: 8, bold: true });
+      if (item.section) addWrapped(item.section, columns[1].x + 5, y + 13, columns[1].width - 10, { size: 6.5, color: [93, 111, 131] });
+      addWrapped(advice, columns[2].x + 5, y, columns[2].width - 10, { size: 7.5, color: [55, 65, 81] });
+      y += rowHeight;
+    });
+  } else {
+    doc.setFillColor(248, 251, 253);
+    doc.roundedRect(margin, y, pageWidth - margin * 2, 42, 6, 6, 'F');
+    addWrapped('No hay técnicas señaladas como prioritarias. Mantén el entrenamiento regular y repasa el temario completo del grado.', margin + 12, y + 18, pageWidth - margin * 2 - 24, { size: 9 });
+    y += 54;
+  }
+
+  ensureSpace(46);
+  y = pageHeight - margin - 30;
   doc.setDrawColor(17, 24, 39);
-  doc.line(margin, y, margin + 190, y);
   doc.line(pageWidth - margin - 190, y, pageWidth - margin, y);
-  addText('Firma examinador', margin, y + 16, { size: 9, color: [75, 85, 99] });
-  addText('Firma alumno / tutor', pageWidth - margin - 190, y + 16, { size: 9, color: [75, 85, 99] });
+  addText('Firma profesor', pageWidth - margin - 190, y + 16, { size: 8, color: [75, 85, 99] });
 
   doc.save(`${safeFileName(report.studentName)}-${safeFileName(report.examTitle)}.pdf`);
 }
@@ -2324,4 +2397,6 @@ init().catch((error) => {
   console.error(error);
   app.innerHTML = `<section class="auth-card"><div class="notice error">${escapeHtml(error.message)}</div></section>`;
 });
+
+
 
