@@ -607,6 +607,9 @@ button, input, select, textarea { font: inherit; }
 .tech-item input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--blue); }
 
 .technique-editor {
+  display: grid;
+  grid-template-columns: auto 72px minmax(0, 1fr) 76px;
+  gap: 9px;
   align-items: flex-start;
 }
 
@@ -621,6 +624,7 @@ button, input, select, textarea { font: inherit; }
 
 .technique-name-input {
   width: 100%;
+  min-width: 0;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: white;
