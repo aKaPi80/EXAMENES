@@ -21,7 +21,7 @@
   techniqueSection,
   techniqueSummary,
   validateExamDraft,
-} from './exam-core.mjs?v=20260612-progressive-order-1';
+} from './exam-core.mjs?v=20260612-progressive-insert-1';
 
 const app = document.getElementById('app');
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -918,6 +918,14 @@ function progressiveRowOrders() {
     .filter((value) => Number.isFinite(value));
 }
 
+function progressiveOrderInput(row) {
+  return $('[data-progressive-order]', row);
+}
+
+function progressiveRowOrder(row) {
+  return Number(progressiveOrderInput(row)?.value || 0);
+}
+
 function nextProgressiveOrder() {
   const orders = progressiveRowOrders();
   return orders.length ? Math.max(...orders) + 1 : 1;
@@ -1112,7 +1120,11 @@ function renderProgressiveKidsRow(item = {}) {
 }
 
 function addProgressiveKidsRow(item) {
-  $('#progressiveRows')?.insertAdjacentHTML('beforeend', renderProgressiveKidsRow(item));
+  const container = $('#progressiveRows');
+  if (!container) return;
+  container.insertAdjacentHTML('beforeend', renderProgressiveKidsRow(item));
+  const row = container.lastElementChild;
+  applyProgressiveInsertionOrder(row);
   bindProgressiveKidsRows();
   updateProgressiveManualNextOrder();
 }
@@ -1123,6 +1135,9 @@ function bindProgressiveKidsRows() {
       button.closest('[data-progressive-row]')?.remove();
       updateProgressiveManualNextOrder();
     };
+  });
+  $$('[data-progressive-order]').forEach((input) => {
+    input.onchange = () => applyProgressiveInsertionOrder(input.closest('[data-progressive-row]'));
   });
 }
 
@@ -1154,12 +1169,43 @@ function sortProgressiveRowsByOrder() {
   if (!container) return;
   $$('[data-progressive-row]', container)
     .sort((a, b) => {
-      const orderA = Number($('[data-progressive-order]', a)?.value || 0);
-      const orderB = Number($('[data-progressive-order]', b)?.value || 0);
+      const orderA = progressiveRowOrder(a);
+      const orderB = progressiveRowOrder(b);
       return orderA - orderB;
     })
     .forEach((row) => container.appendChild(row));
   updateProgressiveManualNextOrder();
+}
+
+function applyProgressiveInsertionOrder(activeRow) {
+  const container = $('#progressiveRows');
+  if (!container || !activeRow) return;
+
+  const activeInput = progressiveOrderInput(activeRow);
+  const desiredOrder = Number(activeInput?.value || nextProgressiveOrder());
+  if (!Number.isFinite(desiredOrder) || desiredOrder <= 0) {
+    activeInput.value = String(nextProgressiveOrder());
+    return;
+  }
+
+  const rows = $$('[data-progressive-row]', container).filter((row) => row !== activeRow);
+  const desiredIsWhole = Number.isInteger(desiredOrder);
+  const occupiedWholeOrder = rows.some((row) => progressiveRowOrder(row) === desiredOrder);
+
+  if (desiredIsWhole && occupiedWholeOrder) {
+    rows
+      .sort((a, b) => progressiveRowOrder(b) - progressiveRowOrder(a))
+      .forEach((row) => {
+        const input = progressiveOrderInput(row);
+        const order = Number(input?.value || 0);
+        if (Number.isInteger(order) && order >= desiredOrder) {
+          input.value = String(order + 1);
+        }
+      });
+  }
+
+  activeInput.value = Number.isInteger(desiredOrder) ? String(desiredOrder) : String(desiredOrder);
+  sortProgressiveRowsByOrder();
 }
 
 function renderTemplateTechniques(template) {
