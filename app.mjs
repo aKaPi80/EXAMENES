@@ -21,7 +21,7 @@
   techniqueSection,
   techniqueSummary,
   validateExamDraft,
-} from './exam-core.mjs?v=20260612-progressive-insert-1';
+} from './exam-core.mjs?v=20260612-adult-order-1';
 
 const app = document.getElementById('app');
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -785,6 +785,7 @@ function renderTechniquesForGrade() {
   `;
   $('#addCustomTechniqueBtn')?.addEventListener('click', addCustomTechniqueRow);
   $('#addPreviousTechniqueBtn')?.addEventListener('click', () => addPreviousTechniqueRow(previousGohoJuhoItems));
+  bindTechniqueOrderInputs();
   refreshTechniquePositionOptions();
 }
 
@@ -1259,6 +1260,7 @@ function renderTemplateTechniques(template) {
   `;
   $('#addCustomTechniqueBtn')?.addEventListener('click', addCustomTechniqueRow);
   $('#addPreviousTechniqueBtn')?.addEventListener('click', () => addPreviousTechniqueRow(previousGohoJuhoItems));
+  bindTechniqueOrderInputs();
   refreshTechniquePositionOptions();
 }
 
@@ -1291,11 +1293,16 @@ function renderTechniqueEditor(item, id) {
   const grade = item?.source_grade || selectedSourceGrade();
   const weightValue = Number(item?.weight || 1);
   const rowId = nextTechniqueRowId();
+  const orderValue = Number(item?.order || item?.order_number || state.techniqueRowCounter);
   return `
     <div class="tech-item technique-editor" data-technique-row data-technique-row-id="${escapeHtml(rowId)}">
       <label class="technique-check">
         <input type="checkbox" data-technique data-section="${escapeHtml(item.section)}" data-grade="${escapeHtml(grade)}" data-original-name="${escapeHtml(originalName)}" value="${escapeHtml(name)}" checked />
         <span class="sr-only">Incluir técnica</span>
+      </label>
+      <label class="technique-order">
+        <span>Orden</span>
+        <input data-technique-order type="number" step="0.1" value="${escapeHtml(orderValue)}" />
       </label>
       <input id="${escapeHtml(inputId)}" class="technique-name-input" data-technique-name value="${escapeHtml(name)}" aria-label="Nombre de técnica" />
       <label class="technique-weight">
@@ -1350,6 +1357,10 @@ function addTechniqueRow({ inputId, section, grade, name, label, placeholder }) 
     <div class="custom-technique-row" data-technique-row data-technique-row-id="${escapeHtml(rowId)}">
       <div class="drag-handle" title="Orden" aria-hidden="true">↕</div>
       <input type="checkbox" data-technique data-section="${escapeHtml(section)}" data-grade="${escapeHtml(grade)}" data-original-name="${escapeHtml(name)}" value="${escapeHtml(name)}" checked hidden />
+      <label class="technique-order">
+        <span>Orden</span>
+        <input data-technique-order type="number" step="0.1" value="${escapeHtml(nextTechniqueOrder())}" />
+      </label>
       <div class="field">
         <label for="${escapeHtml(inputId)}">${escapeHtml(label)}</label>
         <input id="${escapeHtml(inputId)}" class="technique-name-input" data-technique-name value="${escapeHtml(name)}" placeholder="${escapeHtml(placeholder)}" />
@@ -1370,6 +1381,8 @@ function addTechniqueRow({ inputId, section, grade, name, label, placeholder }) 
   const row = $(`[data-technique-row-id="${CSS.escape(rowId)}"]`);
   placeTechniqueRow(row, $('#insertTechniquePosition')?.value || '__end__');
   bindCustomTechniqueButtons();
+  bindTechniqueOrderInputs();
+  applyTechniqueInsertionOrder(row);
   refreshTechniquePositionOptions(rowId);
 }
 
@@ -1415,6 +1428,72 @@ function placeTechniqueRow(row, position) {
 
 function getTechniqueRows() {
   return $$('[data-technique-row]', $('#techniquesArea'));
+}
+
+function techniqueOrderInput(row) {
+  return $('[data-technique-order]', row);
+}
+
+function techniqueRowOrder(row) {
+  return Number(techniqueOrderInput(row)?.value || 0);
+}
+
+function nextTechniqueOrder() {
+  const orders = getTechniqueRows()
+    .map(techniqueRowOrder)
+    .filter((value) => Number.isFinite(value));
+  return orders.length ? Math.max(...orders) + 1 : 1;
+}
+
+function bindTechniqueOrderInputs() {
+  $$('[data-technique-order]').forEach((input) => {
+    input.onchange = () => applyTechniqueInsertionOrder(input.closest('[data-technique-row]'));
+  });
+}
+
+function sortTechniqueRowsByOrder() {
+  const rows = getTechniqueRows()
+    .sort((a, b) => techniqueRowOrder(a) - techniqueRowOrder(b));
+  rows.forEach((row) => {
+    const customBlock = row.closest('.custom-tech-block');
+    if (customBlock && $('#customTechniquesArea') && row.classList.contains('custom-technique-row')) {
+      $('#customTechniquesArea').appendChild(row);
+      return;
+    }
+    const parent = row.parentNode;
+    parent?.appendChild(row);
+  });
+  refreshTechniquePositionOptions();
+}
+
+function applyTechniqueInsertionOrder(activeRow) {
+  if (!activeRow) return;
+
+  const activeInput = techniqueOrderInput(activeRow);
+  const desiredOrder = Number(activeInput?.value || nextTechniqueOrder());
+  if (!Number.isFinite(desiredOrder) || desiredOrder <= 0) {
+    activeInput.value = String(nextTechniqueOrder());
+    return;
+  }
+
+  const rows = getTechniqueRows().filter((row) => row !== activeRow);
+  const desiredIsWhole = Number.isInteger(desiredOrder);
+  const occupiedWholeOrder = rows.some((row) => techniqueRowOrder(row) === desiredOrder);
+
+  if (desiredIsWhole && occupiedWholeOrder) {
+    rows
+      .sort((a, b) => techniqueRowOrder(b) - techniqueRowOrder(a))
+      .forEach((row) => {
+        const input = techniqueOrderInput(row);
+        const order = Number(input?.value || 0);
+        if (Number.isInteger(order) && order >= desiredOrder) {
+          input.value = String(order + 1);
+        }
+      });
+  }
+
+  activeInput.value = String(desiredOrder);
+  sortTechniqueRowsByOrder();
 }
 
 function refreshTechniquePositionOptions(selectedRowId = '') {

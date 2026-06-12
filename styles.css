@@ -642,6 +642,26 @@ button, input, select, textarea { font: inherit; }
   font-weight: 800;
 }
 
+.technique-order {
+  display: grid;
+  gap: 5px;
+  min-width: 72px;
+  color: #263547;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.technique-order input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: white;
+  color: var(--ink);
+  padding: 9px 8px;
+  text-align: center;
+  font-weight: 800;
+}
+
 .technique-weight select {
   width: 100%;
   border: 1px solid var(--line);
@@ -694,7 +714,7 @@ button, input, select, textarea { font: inherit; }
 
 .custom-technique-row {
   display: grid;
-  grid-template-columns: 26px 1fr 76px auto;
+  grid-template-columns: 26px 72px 1fr 76px auto;
   gap: 10px;
   align-items: end;
   margin: 8px 0;

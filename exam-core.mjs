@@ -450,7 +450,7 @@ export function validateExamDraft({ title, grade, sourceGrade, programType = 'ad
 }
 
 export function getSelectedTechniques(form) {
-  return [...form.querySelectorAll('[data-technique]:checked')].map((input) => {
+  return [...form.querySelectorAll('[data-technique]:checked')].map((input, index) => {
     const row = input.closest?.('[data-technique-row]');
     if (!row && input.dataset.techniqueNameInput) {
       return {
@@ -460,14 +460,18 @@ export function getSelectedTechniques(form) {
     }
     const name = row?.querySelector('[data-technique-name]')?.value.trim() || input.value;
     const originalName = input.dataset.originalName || input.value || name;
+    const order = Number(row?.querySelector('[data-technique-order]')?.value || index + 1);
     return {
       section: input.dataset.section || '',
       source_grade: input.dataset.grade || '',
       name,
       original_name: originalName,
       weight: Number(row?.querySelector('[data-technique-weight]')?.value || input.dataset.weight || 1),
+      __order: order,
       summary: techniqueSummary({ name, original_name: originalName }),
     };
-  }).filter((item) => item.name);
+  }).filter((item) => item.name)
+    .sort((a, b) => Number(a.__order || 0) - Number(b.__order || 0))
+    .map(({ __order, ...item }) => item);
 }
 
