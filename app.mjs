@@ -21,7 +21,7 @@
   techniqueSection,
   techniqueSummary,
   validateExamDraft,
-} from './exam-core.mjs?v=20260612-progressive-bank-1';
+} from './exam-core.mjs?v=20260612-progressive-order-1';
 
 const app = document.getElementById('app');
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -845,7 +845,7 @@ function renderProgressiveKidsBuilder(items = []) {
         </div>
         <button class="btn btn-secondary btn-small" id="addProgressiveSyllabusItem" type="button">Añadir del syllabus</button>
         <button class="btn btn-secondary btn-small" id="openProgressiveBank" type="button">Seleccionar varios</button>
-        <button class="btn btn-secondary btn-small" id="addProgressiveManualItem" type="button">Añadir ejercicio manual</button>
+        <button class="btn btn-secondary btn-small" id="sortProgressiveRows" type="button">Ordenar por número</button>
         <div class="field">
           <label for="progressiveCutSelect">Añadir corte</label>
           <select id="progressiveCutSelect">
@@ -855,7 +855,31 @@ function renderProgressiveKidsBuilder(items = []) {
         <button class="btn btn-secondary btn-small" id="addProgressiveCut" type="button">Añadir corte</button>
       </div>
       <div id="progressiveRows" class="progressive-rows">
-        ${items.map(renderProgressiveKidsRow).join('')}
+        ${items.map((item, index) => renderProgressiveKidsRow(withProgressiveOrder(item, index))).join('')}
+      </div>
+      <div class="progressive-manual-entry">
+        <h3>Añadir ejercicio manual</h3>
+        <div class="progressive-manual-grid">
+          <div class="field">
+            <label for="progressiveManualOrder">Orden</label>
+            <input id="progressiveManualOrder" type="number" step="0.1" placeholder="Siguiente" />
+          </div>
+          <div class="field">
+            <label for="progressiveManualSection">Sección</label>
+            <input id="progressiveManualSection" value="Ejercicios añadidos" />
+          </div>
+          <div class="field">
+            <label for="progressiveManualName">Ejercicio / concepto</label>
+            <input id="progressiveManualName" placeholder="Ej. Seiza, sakuza, migi/hidari..." />
+          </div>
+          <label class="technique-weight">
+            <span>Peso</span>
+            <select id="progressiveManualWeight" aria-label="Peso de ejercicio manual">
+              ${[1, 2, 3, 4, 5].map((weight) => `<option value="${weight}">${weight}</option>`).join('')}
+            </select>
+          </label>
+          <button class="btn btn-secondary btn-small" id="addProgressiveManualItem" type="button">Añadir ejercicio</button>
+        </div>
       </div>
     </section>
   `;
@@ -871,20 +895,64 @@ function renderProgressiveKidsBuilder(items = []) {
     $('#progressiveSyllabusSelect').value = '';
   });
   $('#openProgressiveBank')?.addEventListener('click', () => openProgressiveSyllabusBank(syllabusItems));
-  $('#addProgressiveManualItem')?.addEventListener('click', () => addProgressiveKidsRow({
-    type: 'technique',
-    section: 'Ejercicios añadidos',
-    source_grade: selectedSourceGrade(),
-    name: '',
-    original_name: '',
-    weight: 1,
-    summary: '',
-  }));
+  $('#sortProgressiveRows')?.addEventListener('click', sortProgressiveRowsByOrder);
+  $('#addProgressiveManualItem')?.addEventListener('click', addProgressiveManualEntry);
   $('#addProgressiveCut')?.addEventListener('click', () => {
-    const cutBelt = $('#progressiveCutSelect')?.value || 'MINARAI';
-    addProgressiveKidsRow(progressiveCutItem(cutBelt));
+    const cutBelt = $('#progressiveCutSelect')?.value || 'Blanco (Minarai)';
+    addProgressiveKidsRow(progressiveCutItem(cutBelt, nextProgressiveOrder()));
   });
   bindProgressiveKidsRows();
+  updateProgressiveManualNextOrder();
+}
+
+function withProgressiveOrder(item, index) {
+  return {
+    ...item,
+    order: Number(item?.order ?? item?.order_number ?? index + 1),
+  };
+}
+
+function progressiveRowOrders() {
+  return $$('[data-progressive-row]')
+    .map((row) => Number($('[data-progressive-order]', row)?.value))
+    .filter((value) => Number.isFinite(value));
+}
+
+function nextProgressiveOrder() {
+  const orders = progressiveRowOrders();
+  return orders.length ? Math.max(...orders) + 1 : 1;
+}
+
+function updateProgressiveManualNextOrder() {
+  const input = $('#progressiveManualOrder');
+  if (input && !input.value) input.placeholder = String(nextProgressiveOrder());
+}
+
+function addProgressiveManualEntry() {
+  const nameInput = $('#progressiveManualName');
+  const name = nameInput?.value.trim() || '';
+  if (!name) {
+    showErrors('Escribe el nombre del ejercicio manual.');
+    return;
+  }
+  const orderInput = $('#progressiveManualOrder');
+  const sectionInput = $('#progressiveManualSection');
+  const weightInput = $('#progressiveManualWeight');
+  addProgressiveKidsRow({
+    type: 'technique',
+    section: sectionInput?.value.trim() || 'Ejercicios añadidos',
+    source_grade: selectedSourceGrade(),
+    name,
+    original_name: name,
+    weight: Number(weightInput?.value || 1),
+    summary: '',
+    order: Number(orderInput?.value || nextProgressiveOrder()),
+  });
+  if (nameInput) nameInput.value = '';
+  if (orderInput) orderInput.value = '';
+  if (weightInput) weightInput.value = '1';
+  updateProgressiveManualNextOrder();
+  nameInput?.focus();
 }
 
 function openProgressiveSyllabusBank(syllabusItems = progressiveSyllabusItems()) {
@@ -930,6 +998,7 @@ function openProgressiveSyllabusBank(syllabusItems = progressiveSyllabusItems())
       type: 'technique',
       weight: item.weight || 1,
       summary: techniqueSummary(item),
+      order: nextProgressiveOrder(),
     }));
     closeProgressiveSyllabusBank();
   });
@@ -975,7 +1044,7 @@ function filterProgressiveBank(query) {
   });
 }
 
-function progressiveCutItem(cutBelt) {
+function progressiveCutItem(cutBelt, order = nextProgressiveOrder()) {
   return {
     type: 'cut',
     section: 'Corte de grado',
@@ -983,6 +1052,7 @@ function progressiveCutItem(cutBelt) {
     original_name: `Corte: se sientan ${cutBelt}`,
     cut_belt: cutBelt,
     weight: 1,
+    order,
     summary: 'Aviso para retirar del examen a este grupo.',
   };
 }
@@ -993,7 +1063,10 @@ function renderProgressiveKidsRow(item = {}) {
     const cutBelt = item.cut_belt || 'MINARAI';
     return `
       <div class="progressive-row progressive-cut-row" data-progressive-row data-progressive-type="cut" data-technique-row-id="${escapeHtml(rowId)}">
-        <div class="drag-handle" aria-hidden="true">Corte</div>
+        <div class="field progressive-order-field">
+          <label>Orden</label>
+          <input data-progressive-order type="number" step="0.1" value="${escapeHtml(item.order ?? nextProgressiveOrder())}" />
+        </div>
         <div class="field">
           <label>Se sientan</label>
           <select data-progressive-cut-belt>
@@ -1002,8 +1075,6 @@ function renderProgressiveKidsRow(item = {}) {
         </div>
         <p class="helper-text">Este paso no puntúa. A partir de aquí esos alumnos dejan de aparecer en las técnicas siguientes.</p>
         <div class="custom-technique-actions">
-          <button class="btn btn-secondary btn-small" type="button" data-move-progressive="up">Subir</button>
-          <button class="btn btn-secondary btn-small" type="button" data-move-progressive="down">Bajar</button>
           <button class="btn btn-danger btn-small" type="button" data-remove-progressive>Eliminar</button>
         </div>
       </div>
@@ -1012,7 +1083,10 @@ function renderProgressiveKidsRow(item = {}) {
 
   return `
     <div class="progressive-row" data-progressive-row data-progressive-type="technique" data-technique-row-id="${escapeHtml(rowId)}">
-      <div class="drag-handle" aria-hidden="true">↕</div>
+      <div class="field progressive-order-field">
+        <label>Orden</label>
+        <input data-progressive-order type="number" step="0.1" value="${escapeHtml(item.order ?? nextProgressiveOrder())}" />
+      </div>
       <div class="field">
         <label>Sección</label>
         <input data-progressive-section value="${escapeHtml(item.section || 'Ejercicios')}" />
@@ -1031,8 +1105,6 @@ function renderProgressiveKidsRow(item = {}) {
       <input type="hidden" data-progressive-original-name value="${escapeHtml(item.original_name || techniqueName(item))}" />
       <input type="hidden" data-progressive-summary value="${escapeHtml(item.summary || techniqueSummary(item))}" />
       <div class="custom-technique-actions">
-        <button class="btn btn-secondary btn-small" type="button" data-move-progressive="up">Subir</button>
-        <button class="btn btn-secondary btn-small" type="button" data-move-progressive="down">Bajar</button>
         <button class="btn btn-danger btn-small" type="button" data-remove-progressive>Eliminar</button>
       </div>
     </div>
@@ -1042,31 +1114,24 @@ function renderProgressiveKidsRow(item = {}) {
 function addProgressiveKidsRow(item) {
   $('#progressiveRows')?.insertAdjacentHTML('beforeend', renderProgressiveKidsRow(item));
   bindProgressiveKidsRows();
+  updateProgressiveManualNextOrder();
 }
 
 function bindProgressiveKidsRows() {
   $$('[data-remove-progressive]').forEach((button) => {
-    button.onclick = () => button.closest('[data-progressive-row]')?.remove();
-  });
-  $$('[data-move-progressive]').forEach((button) => {
     button.onclick = () => {
-      const row = button.closest('[data-progressive-row]');
-      if (!row) return;
-      if (button.dataset.moveProgressive === 'up' && row.previousElementSibling) {
-        row.parentNode.insertBefore(row, row.previousElementSibling);
-      }
-      if (button.dataset.moveProgressive === 'down' && row.nextElementSibling) {
-        row.parentNode.insertBefore(row.nextElementSibling, row);
-      }
+      button.closest('[data-progressive-row]')?.remove();
+      updateProgressiveManualNextOrder();
     };
   });
 }
 
 function collectProgressiveKidsTechniques() {
-  return $$('[data-progressive-row]').map((row) => {
+  return $$('[data-progressive-row]').map((row, index) => {
+    const order = Number($('[data-progressive-order]', row)?.value || index + 1);
     if (row.dataset.progressiveType === 'cut') {
-      const cutBelt = $('[data-progressive-cut-belt]', row)?.value || 'MINARAI';
-      return progressiveCutItem(cutBelt);
+      const cutBelt = $('[data-progressive-cut-belt]', row)?.value || 'Blanco (Minarai)';
+      return progressiveCutItem(cutBelt, order);
     }
     const name = $('[data-progressive-name]', row)?.value.trim() || '';
     const originalName = $('[data-progressive-original-name]', row)?.value.trim() || name;
@@ -1077,9 +1142,24 @@ function collectProgressiveKidsTechniques() {
       name,
       original_name: originalName,
       weight: Number($('[data-progressive-weight]', row)?.value || 1),
+      order,
       summary: $('[data-progressive-summary]', row)?.value.trim() || '',
     };
-  }).filter((item) => item.type === 'cut' || item.name);
+  }).filter((item) => item.type === 'cut' || item.name)
+    .sort((a, b) => Number(a.order || 0) - Number(b.order || 0));
+}
+
+function sortProgressiveRowsByOrder() {
+  const container = $('#progressiveRows');
+  if (!container) return;
+  $$('[data-progressive-row]', container)
+    .sort((a, b) => {
+      const orderA = Number($('[data-progressive-order]', a)?.value || 0);
+      const orderB = Number($('[data-progressive-order]', b)?.value || 0);
+      return orderA - orderB;
+    })
+    .forEach((row) => container.appendChild(row));
+  updateProgressiveManualNextOrder();
 }
 
 function renderTemplateTechniques(template) {

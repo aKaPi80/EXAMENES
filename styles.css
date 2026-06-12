@@ -283,7 +283,7 @@ button, input, select, textarea { font: inherit; }
 
 .progressive-tools {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) auto auto minmax(180px, 0.6fr) auto;
+  grid-template-columns: minmax(240px, 1fr) auto auto auto minmax(170px, 0.6fr) auto;
   gap: 10px;
   align-items: end;
   margin: 12px 0 16px;
@@ -300,7 +300,7 @@ button, input, select, textarea { font: inherit; }
 
 .progressive-row {
   display: grid;
-  grid-template-columns: 46px minmax(140px, 0.8fr) minmax(240px, 1.3fr) 90px auto;
+  grid-template-columns: 82px minmax(140px, 0.8fr) minmax(240px, 1.3fr) 90px auto;
   gap: 10px;
   align-items: end;
   padding: 12px;
@@ -314,14 +314,38 @@ button, input, select, textarea { font: inherit; }
 }
 
 .progressive-cut-row {
-  grid-template-columns: 72px minmax(220px, 0.7fr) minmax(240px, 1fr) auto;
+  grid-template-columns: 82px minmax(220px, 0.7fr) minmax(240px, 1fr) auto;
   background: #fff8e8;
   border-color: #f1d28e;
 }
 
-.progressive-cut-row .drag-handle {
-  color: #7a4a00;
-  background: #fff2cc;
+.progressive-order-field input {
+  text-align: center;
+  font-weight: 800;
+}
+
+.progressive-manual-entry {
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px dashed #b8c7d6;
+  border-radius: 8px;
+  background: #f8fbfd;
+}
+
+.progressive-manual-entry h3 {
+  margin: 0 0 10px;
+  color: var(--blue-dark);
+}
+
+.progressive-manual-grid {
+  display: grid;
+  grid-template-columns: 90px minmax(140px, 0.7fr) minmax(260px, 1.4fr) 90px auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.progressive-manual-grid .field {
+  margin-bottom: 0;
 }
 
 .progressive-cut-stage {
@@ -1264,7 +1288,7 @@ button, input, select, textarea { font: inherit; }
   .dialog-head { flex-direction: column; }
   .belt-order-layout, .belt-order-row { grid-template-columns: 1fr; }
   .belt-order-summary { position: static; }
-  .progressive-tools, .progressive-row, .progressive-cut-row, .progressive-bank-toolbar { grid-template-columns: 1fr; }
+  .progressive-tools, .progressive-row, .progressive-cut-row, .progressive-bank-toolbar, .progressive-manual-grid { grid-template-columns: 1fr; }
   .progressive-bank-toolbar { top: -16px; }
   .tech-block-head { align-items: stretch; flex-direction: column; }
   .technique-stage { flex-direction: column; align-items: flex-start; }
