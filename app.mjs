@@ -21,7 +21,7 @@
   techniqueSection,
   techniqueSummary,
   validateExamDraft,
-} from './exam-core.mjs?v=20260612-technique-name-visible-1';
+} from './exam-core.mjs?v=20260612-technique-name-visible-2';
 
 const app = document.getElementById('app');
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1304,7 +1304,10 @@ function renderTechniqueEditor(item, id) {
         <span>Orden</span>
         <input data-technique-order type="number" step="0.1" value="${escapeHtml(orderValue)}" />
       </label>
-      <input id="${escapeHtml(inputId)}" class="technique-name-input" data-technique-name value="${escapeHtml(name)}" aria-label="Nombre de técnica" />
+      <div class="field technique-name-field">
+        <label for="${escapeHtml(inputId)}">Técnica</label>
+        <input id="${escapeHtml(inputId)}" class="technique-name-input" data-technique-name value="${escapeHtml(name)}" aria-label="Nombre de técnica" />
+      </div>
       <label class="technique-weight">
         <span>Peso</span>
         <select data-technique-weight aria-label="Peso de técnica">

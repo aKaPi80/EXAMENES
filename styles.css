@@ -624,9 +624,13 @@ button, input, select, textarea { font: inherit; }
   margin-top: 10px;
 }
 
-.technique-name-input {
+.technique-name-field {
   grid-column: 1 / -1;
   grid-row: 1;
+  margin-bottom: 0;
+}
+
+.technique-name-input {
   width: 100%;
   min-width: 0;
   border: 1px solid var(--line);
