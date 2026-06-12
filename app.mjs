@@ -21,7 +21,7 @@
   techniqueSection,
   techniqueSummary,
   validateExamDraft,
-} from './exam-core.mjs?v=20260613-dan-tribunal-1';
+} from './exam-core.mjs?v=20260613-dan-tribunal-review-1';
 
 const app = document.getElementById('app');
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -2034,11 +2034,22 @@ async function viewExamDetails(examId) {
     return;
   }
 
+  let tribunalReviews = [];
+  if (exam.program_type === 'dan_tribunal') {
+    const reviewsRes = await supabase.from('tribunal_reviews').select('*').eq('exam_id', examId);
+    if (reviewsRes.error) {
+      showErrors(`Falta preparar Supabase para revisión final DAN tribunal: ${reviewsRes.error.message}`);
+      return;
+    }
+    tribunalReviews = reviewsRes.data || [];
+  }
+
   state.selectedExam = {
     ...exam,
     students: studentsRes.data || [],
     links: linksRes.data || [],
     evaluations: evaluationsRes.data || [],
+    tribunalReviews,
   };
 
   renderExamDetails();
@@ -2098,6 +2109,9 @@ function renderExamDetails() {
   });
   $$('.save-review').forEach((button) => {
     button.addEventListener('click', () => saveProfessorReview(button.dataset.evaluationId));
+  });
+  $$('.save-tribunal-review').forEach((button) => {
+    button.addEventListener('click', () => saveTribunalReview(button.dataset.studentId, Number(button.dataset.basePercentage || 0)));
   });
 }
 
@@ -2162,6 +2176,7 @@ function evaluationAdjustmentPoints(evaluation) {
 function tribunalRowsForExam(exam) {
   return (exam.students || []).map((student) => {
     const evaluations = (exam.evaluations || []).filter((evaluation) => evaluation.student_id === student.id || evaluation.exam_student_id === student.id || evaluation.exam_students?.id === student.id);
+    const review = (exam.tribunalReviews || []).find((item) => item.student_id === student.id);
     const examinerResults = evaluations.map((evaluation) => {
       const techniqueEvaluations = evaluation.technique_evaluations || evaluation.technique_scores || [];
       const summary = calculateEvaluationSummary(techniqueEvaluations, exam.pass_percentage, evaluationAdjustmentPoints(evaluation));
@@ -2177,13 +2192,29 @@ function tribunalRowsForExam(exam) {
     const average = examinerResults.length
       ? Math.round((examinerResults.reduce((sum, item) => sum + item.percentage, 0) / examinerResults.length) * 100) / 100
       : 0;
+    const adjustmentPoints = Number(review?.adjustment_points || 0);
+    const finalPercentage = review
+      ? Number(review.final_percentage ?? Math.max(0, Math.min(100, average + adjustmentPoints)))
+      : average;
+    const finalPassed = review
+      ? Boolean(review.final_passed)
+      : examinerResults.length > 0 && average >= Number(exam.pass_percentage || 0);
     return {
       student,
       examinerResults,
       average,
-      finalPassed: examinerResults.length > 0 && average >= Number(exam.pass_percentage || 0),
+      review,
+      adjustmentPoints,
+      finalPercentage,
+      finalPassed,
     };
   });
+}
+
+function tribunalResultValue(row, exam) {
+  if (!row.examinerResults.length) return 'auto';
+  if (!row.review) return 'auto';
+  return row.finalPassed ? 'passed' : 'failed';
 }
 
 function renderDanTribunalResults(exam) {
@@ -2200,12 +2231,36 @@ function renderDanTribunalResults(exam) {
                 <h3>${escapeHtml(row.student.student_name || 'Alumno')}</h3>
                 <p>${escapeHtml(row.student.student_belt_color || '')} · ${row.examinerResults.length}/${expectedExaminers} evaluaciones recibidas</p>
               </div>
-              <span class="status ${row.finalPassed ? 'passed' : 'failed'}">${row.examinerResults.length ? row.finalPassed ? 'Aprobado por media' : 'No alcanza la media' : 'Pendiente'}</span>
+              <span class="status ${row.finalPassed ? 'passed' : 'failed'}">${row.examinerResults.length ? row.finalPassed ? 'Aprobado final' : 'Suspenso final' : 'Pendiente'}</span>
             </div>
             <div class="tribunal-average">
-              <strong>${row.examinerResults.length ? `${row.average}%` : '-'}</strong>
-              <span>media del tribunal · mínimo ${escapeHtml(exam.pass_percentage)}%</span>
+              <strong>${row.examinerResults.length ? `${row.finalPercentage}%` : '-'}</strong>
+              <span>resultado final · media original ${row.examinerResults.length ? `${row.average}%` : '-'} · mínimo ${escapeHtml(exam.pass_percentage)}%</span>
             </div>
+            <details class="review-box tribunal-review-box" ${row.review ? 'open' : ''}>
+              <summary>Revisión final del maestro</summary>
+              <p class="helper-text">Este ajuste decide el resultado final del tribunal. El motivo es interno.</p>
+              <div class="grid-3">
+                <div class="field">
+                  <label for="tribunalAdjustment-${escapeHtml(row.student.id)}">Ajuste</label>
+                  <input id="tribunalAdjustment-${escapeHtml(row.student.id)}" class="tribunal-adjustment" data-student-id="${escapeHtml(row.student.id)}" type="number" step="0.1" value="${escapeHtml(row.adjustmentPoints)}" />
+                </div>
+                <div class="field">
+                  <label for="tribunalResult-${escapeHtml(row.student.id)}">Resultado final</label>
+                  <select id="tribunalResult-${escapeHtml(row.student.id)}" class="tribunal-result" data-student-id="${escapeHtml(row.student.id)}">
+                    <option value="auto" ${tribunalResultValue(row, exam) === 'auto' ? 'selected' : ''}>Automático por media</option>
+                    <option value="passed" ${tribunalResultValue(row, exam) === 'passed' ? 'selected' : ''}>Aprobado por maestro</option>
+                    <option value="failed" ${tribunalResultValue(row, exam) === 'failed' ? 'selected' : ''}>Suspenso por maestro</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="tribunalReason-${escapeHtml(row.student.id)}">Motivo interno</label>
+                  <input id="tribunalReason-${escapeHtml(row.student.id)}" class="tribunal-reason" data-student-id="${escapeHtml(row.student.id)}" value="${escapeHtml(row.review?.adjustment_reason || '')}" placeholder="Criterio final del maestro" />
+                </div>
+              </div>
+              ${row.review ? `<p><strong>Último ajuste:</strong> ${row.adjustmentPoints > 0 ? '+' : ''}${row.adjustmentPoints} · Final ${row.finalPercentage}%${row.review.adjustment_reason ? ` · ${escapeHtml(row.review.adjustment_reason)}` : ''}</p>` : ''}
+              <button class="btn btn-secondary btn-small save-tribunal-review" type="button" data-student-id="${escapeHtml(row.student.id)}" data-base-percentage="${escapeHtml(row.average)}">Guardar revisión final</button>
+            </details>
             <div class="tribunal-examiners">
               ${row.examinerResults.length ? row.examinerResults.map((item) => `
                 <div>
@@ -2251,9 +2306,45 @@ async function saveProfessorReview(evaluationId) {
   await viewExamDetails(state.selectedExam.id);
 }
 
+async function saveTribunalReview(studentId, basePercentage) {
+  const exam = state.selectedExam;
+  if (!exam) return;
+
+  const adjustment = Number($(`.tribunal-adjustment[data-student-id="${CSS.escape(studentId)}"]`)?.value || 0);
+  const resultMode = $(`.tribunal-result[data-student-id="${CSS.escape(studentId)}"]`)?.value || 'auto';
+  const reason = ($(`.tribunal-reason[data-student-id="${CSS.escape(studentId)}"]`)?.value || '').trim();
+  const finalPercentage = Math.max(0, Math.min(100, Math.round((basePercentage + adjustment) * 100) / 100));
+  const finalPassed = resultMode === 'auto'
+    ? finalPercentage >= Number(exam.pass_percentage || 0)
+    : resultMode === 'passed';
+
+  const { error } = await supabase.rpc('upsert_tribunal_review', {
+    p_exam_id: exam.id,
+    p_student_id: studentId,
+    p_base_percentage: basePercentage,
+    p_adjustment_points: adjustment,
+    p_final_percentage: finalPercentage,
+    p_final_passed: finalPassed,
+    p_adjustment_reason: reason,
+  });
+
+  if (error) {
+    showErrors(error.message);
+    return;
+  }
+
+  notify('Revisión final del tribunal guardada.');
+  await viewExamDetails(exam.id);
+}
+
 async function registerPassedStudentsInSheet() {
   const exam = state.selectedExam;
   if (!exam) return;
+
+  if (exam.program_type === 'dan_tribunal') {
+    await registerPassedTribunalStudentsInSheet(exam);
+    return;
+  }
 
   const passedEvaluations = exam.evaluations.filter((evaluation) => {
     const techniqueEvaluations = evaluation.technique_evaluations || evaluation.technique_scores || [];
@@ -2308,6 +2399,58 @@ async function registerPassedStudentsInSheet() {
   }
 
   notify('Aprobados enviados a Google Sheets. Revisa la pestaña EXAMENES.');
+}
+
+async function registerPassedTribunalStudentsInSheet(exam) {
+  const passedRows = tribunalRowsForExam(exam).filter((row) => row.examinerResults.length && row.finalPassed);
+
+  if (passedRows.length === 0) {
+    notify('No hay alumnos aprobados por el tribunal para registrar.', 'warning');
+    return;
+  }
+
+  const savedToken = localStorage.getItem('skbcSheetToken') || '';
+  const token = (prompt('Pega el token configurado en Apps Script para registrar en la base de datos:', savedToken) || '').trim();
+  if (!token) return;
+  localStorage.setItem('skbcSheetToken', token);
+
+  if (!confirm(`Se registrarán ${passedRows.length} alumno(s) aprobado(s) por el tribunal. ¿Continuar?`)) {
+    return;
+  }
+
+  const failed = [];
+  for (const row of passedRows) {
+    const payload = buildExamSheetPayload({
+      studentName: row.student.student_name || '',
+      studentRef: row.student.student_ref || '',
+      studentSourceId: row.student.student_source_id || '',
+      programType: exam.program_type || 'dan_tribunal',
+      grade: exam.grade,
+      sourceGrade: exam.source_grade || exam.grade,
+      examinerName: 'Tribunal DAN',
+      submittedAt: row.review?.reviewed_at || new Date().toISOString(),
+      registeredBy: state.professor?.name || state.professor?.email || 'Sistema exámenes SKBC',
+      token,
+    });
+
+    try {
+      await fetch(EXAM_SHEET_WEBAPP_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload),
+      });
+    } catch (error) {
+      failed.push(payload.alumno);
+    }
+  }
+
+  if (failed.length) {
+    showErrors(`No se pudieron enviar: ${failed.join(', ')}`);
+    return;
+  }
+
+  notify('Aprobados del tribunal enviados a Google Sheets. Revisa la pestaña EXAMENES.');
 }
 
 function beltOrderColorForExamGrade(grade) {
