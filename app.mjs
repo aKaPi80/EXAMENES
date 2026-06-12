@@ -21,7 +21,7 @@
   techniqueSection,
   techniqueSummary,
   validateExamDraft,
-} from './exam-core.mjs?v=20260613-dan-tribunal-review-1';
+} from './exam-core.mjs?v=20260613-edit-unaudited-1';
 
 const app = document.getElementById('app');
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -40,6 +40,7 @@ const state = {
   customTechniqueCounter: 0,
   techniqueRowCounter: 0,
   examTemplateDraft: null,
+  examEditDraft: null,
   techniqueSummaries: new Map(),
 };
 
@@ -615,12 +616,16 @@ async function moveExamToFolder(examId, folderId) {
 function renderCreateExam() {
   state.customTechniqueCounter = 0;
   const template = state.examTemplateDraft;
+  const editDraft = state.examEditDraft;
+  const draftSource = editDraft || template;
+  const isEditing = Boolean(editDraft);
   $('#panelContent').innerHTML = `
     <div class="section-head">
       <div>
-        <h2>${template ? 'Crear examen desde copia' : 'Crear examen'}</h2>
-        <p>${template ? 'Revisa la copia, carga alumnos y añade examinadores antes de crear la nueva convocatoria.' : 'Define técnicas, estudiantes y examinadores en un único flujo.'}</p>
+        <h2>${isEditing ? 'Editar examen' : template ? 'Crear examen desde copia' : 'Crear examen'}</h2>
+        <p>${isEditing ? 'Solo puedes editar convocatorias sin evaluaciones enviadas. Al guardar se regeneran los enlaces de examinador.' : template ? 'Revisa la copia, carga alumnos y añade examinadores antes de crear la nueva convocatoria.' : 'Define técnicas, estudiantes y examinadores en un único flujo.'}</p>
       </div>
+      ${isEditing ? '<button class="btn btn-secondary" id="cancelExamEdit" type="button">Cancelar edición</button>' : ''}
     </div>
     <form id="examForm">
       <div class="grid-3">
@@ -646,7 +651,7 @@ function renderCreateExam() {
         <div class="field">
           <label for="examFolder">Carpeta</label>
           <select id="examFolder">
-            ${folderOptions(template?.folder_id || null)}
+            ${folderOptions(draftSource?.folder_id || null)}
           </select>
         </div>
       </div>
@@ -672,21 +677,25 @@ function renderCreateExam() {
         <button class="btn btn-secondary" id="addExaminerBtn" type="button">Añadir examinador</button>
       </div>
       <div id="examinersArea" class="card-list"></div>
-      <button class="btn btn-success" type="submit" style="margin-top:24px">Crear examen y enlaces</button>
+      <button class="btn btn-success" type="submit" style="margin-top:24px">${isEditing ? 'Guardar cambios del examen' : 'Crear examen y enlaces'}</button>
     </form>
   `;
 
   populateExamGradeOptions();
-  if (template) {
-    $('#examTitle').value = template.title || '';
-    $('#examProgram').value = template.program_type || 'adultos';
+  if (draftSource) {
+    $('#examTitle').value = draftSource.title || '';
+    $('#examProgram').value = draftSource.program_type || 'adultos';
     populateExamGradeOptions();
-    $('#examGrade').value = template.grade || '';
-    $('#passPercentage').value = Number(template.pass_percentage || 65);
-    $('#examFolder').value = template.folder_id || '';
+    $('#examGrade').value = draftSource.grade || '';
+    $('#passPercentage').value = Number(draftSource.pass_percentage || 65);
+    $('#examFolder').value = draftSource.folder_id || '';
     $('#passLabel').textContent = `${$('#passPercentage').value}%`;
-    renderTemplateTechniques(template);
-    state.examTemplateDraft = null;
+    renderTemplateTechniques(draftSource);
+    if (isEditing) {
+      (draftSource.students || []).forEach((student) => addStudentRow(student));
+      (draftSource.examiners || []).forEach((examiner) => addExaminerRow(examiner));
+    }
+    if (template) state.examTemplateDraft = null;
   }
   $('#examProgram').addEventListener('change', async () => {
     populateExamGradeOptions();
@@ -703,9 +712,17 @@ function renderCreateExam() {
   $('#loadSheetStudentsBtn').addEventListener('click', loadSheetStudentsForExam);
   $('#addStudentBtn').addEventListener('click', addStudentRow);
   $('#addExaminerBtn').addEventListener('click', addExaminerRow);
-  $('#examForm').addEventListener('submit', createExam);
-  addStudentRow();
-  addExaminerRow();
+  $('#examForm').addEventListener('submit', isEditing ? updateExistingExam : createExam);
+  $('#cancelExamEdit')?.addEventListener('click', () => {
+    const examId = state.examEditDraft?.id;
+    state.examEditDraft = null;
+    switchTab('exams');
+    if (examId) viewExamDetails(examId);
+  });
+  if (!isEditing) {
+    addStudentRow();
+    addExaminerRow();
+  }
 }
 
 function selectedProgramType() {
@@ -1843,12 +1860,12 @@ function normalizeStudentName(value) {
     .toLowerCase();
 }
 
-function addExaminerRow() {
+function addExaminerRow(examiner = {}) {
   $('#examinersArea').insertAdjacentHTML('beforeend', `
     <div class="row-card examiner-row">
       <div class="field">
         <label>Nombre</label>
-        <input class="examiner-name" required />
+        <input class="examiner-name" value="${escapeHtml(examiner.name || examiner.examiners?.name || '')}" required />
       </div>
       <button class="btn btn-danger btn-small" type="button" data-remove-row>Eliminar</button>
     </div>
@@ -1997,6 +2014,148 @@ async function createExam(event) {
   notify('Examen creado. Ya puedes compartir los enlaces de examinador.');
 }
 
+async function startEditExam() {
+  const exam = state.selectedExam;
+  if (!exam) return;
+
+  if ((exam.evaluations || []).length > 0) {
+    showErrors('No se puede editar: este examen ya tiene evaluaciones enviadas.');
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from('evaluations')
+    .select('id')
+    .eq('exam_id', exam.id)
+    .limit(1);
+
+  if (error) {
+    showErrors(error.message);
+    return;
+  }
+
+  if ((data || []).length > 0) {
+    showErrors('No se puede editar: un examinador ya ha enviado una evaluación.');
+    await viewExamDetails(exam.id);
+    return;
+  }
+
+  state.examEditDraft = {
+    ...exam,
+    students: JSON.parse(JSON.stringify(exam.students || [])),
+    examiners: (exam.links || []).map((link) => ({
+      name: link.examiners?.name || 'Examinador',
+    })),
+    techniques: JSON.parse(JSON.stringify(exam.techniques || [])),
+  };
+  switchTab('create');
+}
+
+async function updateExistingExam(event) {
+  event.preventDefault();
+  const editDraft = state.examEditDraft;
+  if (!editDraft) return;
+
+  const { data: existingEvaluations, error: evaluationsError } = await supabase
+    .from('evaluations')
+    .select('id')
+    .eq('exam_id', editDraft.id)
+    .limit(1);
+
+  if (evaluationsError) {
+    showErrors(evaluationsError.message);
+    return;
+  }
+
+  if ((existingEvaluations || []).length > 0) {
+    state.examEditDraft = null;
+    showErrors('No se han guardado cambios: el examen ya fue auditado por un examinador.');
+    await viewExamDetails(editDraft.id);
+    return;
+  }
+
+  const draft = collectDraft();
+  await loadTechniqueSummariesForGrade(draft.sourceGrade);
+  draft.techniques = addSummariesToTechniques(draft.techniques);
+  const validation = validateExamDraft(draft);
+
+  if (!validation.valid) {
+    showErrors(validation.errors);
+    return;
+  }
+
+  const { error: examError } = await supabase
+    .from('exams')
+    .update({
+      title: draft.title,
+      grade: draft.grade,
+      program_type: draft.programType,
+      source_grade: draft.sourceGrade,
+      folder_id: draft.folderId,
+      techniques: draft.techniques,
+      pass_percentage: draft.passPercentage,
+      status: 'active',
+    })
+    .eq('id', editDraft.id);
+
+  if (examError) {
+    showErrors(examError.message);
+    return;
+  }
+
+  const { error: deleteStudentsError } = await supabase
+    .from('exam_students')
+    .delete()
+    .eq('exam_id', editDraft.id);
+
+  if (deleteStudentsError) {
+    showErrors(deleteStudentsError.message);
+    return;
+  }
+
+  const { error: studentsError } = await supabase.from('exam_students').insert(
+    draft.students.map((student) => ({ ...student, exam_id: editDraft.id }))
+  );
+
+  if (studentsError) {
+    showErrors(studentsError.message);
+    return;
+  }
+
+  const { error: deleteLinksError } = await supabase
+    .from('exam_examiners')
+    .delete()
+    .eq('exam_id', editDraft.id);
+
+  if (deleteLinksError) {
+    showErrors(deleteLinksError.message);
+    return;
+  }
+
+  for (const examiner of draft.examiners) {
+    const examinerId = await upsertExaminer(examiner);
+    const token = normalizeToken();
+    const accessUrl = `${window.location.origin}${window.location.pathname}?exam=${token}`;
+
+    const { error } = await supabase.from('exam_examiners').insert({
+      exam_id: editDraft.id,
+      examiner_id: examinerId,
+      access_token: token,
+      access_url: accessUrl,
+    });
+    if (error) {
+      showErrors(error.message);
+      return;
+    }
+  }
+
+  state.examEditDraft = null;
+  await loadExams();
+  switchTab('exams');
+  await viewExamDetails(editDraft.id);
+  notify('Examen actualizado. Los enlaces de examinador se han regenerado.');
+}
+
 async function upsertExaminer(examiner) {
   const email = `examiner-${normalizeToken(8)}@skbc.local`;
   const { data: existing, error: readError } = await supabase
@@ -2064,6 +2223,7 @@ function renderExamDetails() {
         <p>${escapeHtml(gradeLabel(exam.grade))} · ${(exam.techniques || []).filter((item) => item?.type !== 'cut').length} técnicas · aprobado desde ${exam.pass_percentage}%</p>
       </div>
       <div class="btn-row">
+        <button class="btn btn-secondary" id="editExamBtn" ${exam.evaluations.length ? 'disabled' : ''}>Editar examen</button>
         <button class="btn btn-secondary" id="printStudyExam">Imprimir temario para alumnos</button>
         <button class="btn btn-secondary" id="beltOrderBtn">Añadir a pedido de cinturones</button>
         <button class="btn btn-success" id="registerPassed">Registrar aprobados en base de datos</button>
@@ -2098,6 +2258,7 @@ function renderExamDetails() {
     </div>
   `;
   $('#backToExams').addEventListener('click', renderExamList);
+  $('#editExamBtn').addEventListener('click', startEditExam);
   $('#printStudyExam').addEventListener('click', renderPrintableStudyExam);
   $('#beltOrderBtn').addEventListener('click', openBeltOrderDialog);
   $('#registerPassed').addEventListener('click', registerPassedStudentsInSheet);
