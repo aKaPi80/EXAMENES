@@ -21,7 +21,7 @@
   techniqueSection,
   techniqueSummary,
   validateExamDraft,
-} from './exam-core.mjs?v=20260612-adult-order-stable-1';
+} from './exam-core.mjs?v=20260613-dan-tribunal-1';
 
 const app = document.getElementById('app');
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -716,6 +716,10 @@ function isProgressiveKidsProgram(programType = selectedProgramType()) {
   return programType === 'ninos_progresivo';
 }
 
+function isDanTribunalProgram(programType = selectedProgramType()) {
+  return programType === 'dan_tribunal';
+}
+
 function selectedSourceGrade() {
   return sourceGradeForExamGrade($('#examGrade')?.value || '', selectedProgramType());
 }
@@ -729,7 +733,9 @@ function populateExamGradeOptions() {
   `;
   $('#gradeHelp').textContent = isProgressiveKidsProgram(programType)
     ? 'Modo infantil progresivo: todos empiezan juntos. Construye un recorrido completo y coloca cortes para indicar cuándo se sienta cada grupo.'
-    : programType === 'ninos'
+    : isDanTribunalProgram(programType)
+      ? 'Modo DAN tribunal: varios examinadores evalúan el mismo examen y el panel calcula la media final por alumno.'
+      : programType === 'ninos'
       ? 'Selecciona el grado infantil objetivo. La app propondrá el temario adulto equivalente para que el profesor lo adapte.'
       : 'Selecciona el grado objetivo del examen: Minarai/Blanco examina 5 KYU, 5 KYU examina 4 KYU, 4 KYU examina 3 KYU, y así sucesivamente.';
 }
@@ -748,6 +754,7 @@ function renderTechniquesForGrade() {
   state.techniqueRowCounter = 0;
   $('#techniquesArea').innerHTML = `
     ${programType === 'ninos' && grade ? `<div class="notice">Examen infantil ${escapeHtml(gradeLabel(grade))}: se propone el temario adulto de ${escapeHtml(gradeLabel(sourceGrade))}.</div>` : ''}
+    ${isDanTribunalProgram(programType) && grade ? `<div class="notice">Examen DAN tribunal ${escapeHtml(gradeLabel(grade))}: añade varios examinadores para calcular la media final del tribunal.</div>` : ''}
     ${blocks.map(([block, techniques]) => `
       <section class="tech-block">
         <h3>${escapeHtml(block)}</h3>
@@ -2069,12 +2076,14 @@ function renderExamDetails() {
           `).join('') || '<p>No hay examinadores.</p>'}
         </section>
       </aside>
-      <section>
-        <h3>Resultados recibidos</h3>
-        <div class="card-list">
-          ${exam.evaluations.length ? exam.evaluations.map(renderEvaluationCard).join('') : '<div class="empty">Todavía no hay evaluaciones enviadas.</div>'}
-        </div>
-      </section>
+      ${exam.program_type === 'dan_tribunal' ? renderDanTribunalResults(exam) : `
+        <section>
+          <h3>Resultados recibidos</h3>
+          <div class="card-list">
+            ${exam.evaluations.length ? exam.evaluations.map(renderEvaluationCard).join('') : '<div class="empty">Todavía no hay evaluaciones enviadas.</div>'}
+          </div>
+        </section>
+      `}
     </div>
   `;
   $('#backToExams').addEventListener('click', renderExamList);
@@ -2148,6 +2157,73 @@ function renderEvaluationCard(evaluation) {
 
 function evaluationAdjustmentPoints(evaluation) {
   return Number(evaluation.adjustment_points ?? evaluation.professor_adjustment_points ?? 0) || 0;
+}
+
+function tribunalRowsForExam(exam) {
+  return (exam.students || []).map((student) => {
+    const evaluations = (exam.evaluations || []).filter((evaluation) => evaluation.student_id === student.id || evaluation.exam_student_id === student.id || evaluation.exam_students?.id === student.id);
+    const examinerResults = evaluations.map((evaluation) => {
+      const techniqueEvaluations = evaluation.technique_evaluations || evaluation.technique_scores || [];
+      const summary = calculateEvaluationSummary(techniqueEvaluations, exam.pass_percentage, evaluationAdjustmentPoints(evaluation));
+      return {
+        evaluation,
+        examinerName: evaluation.examiners?.name || 'Examinador',
+        percentage: summary.percentage,
+        passed: summary.passed,
+        totalScore: summary.totalScore,
+        maxScore: summary.maxScore,
+      };
+    });
+    const average = examinerResults.length
+      ? Math.round((examinerResults.reduce((sum, item) => sum + item.percentage, 0) / examinerResults.length) * 100) / 100
+      : 0;
+    return {
+      student,
+      examinerResults,
+      average,
+      finalPassed: examinerResults.length > 0 && average >= Number(exam.pass_percentage || 0),
+    };
+  });
+}
+
+function renderDanTribunalResults(exam) {
+  const rows = tribunalRowsForExam(exam);
+  const expectedExaminers = exam.links?.length || 0;
+  return `
+    <section>
+      <h3>Resultado del tribunal</h3>
+      <div class="tribunal-list">
+        ${rows.map((row) => `
+          <article class="tribunal-card">
+            <div class="tribunal-head">
+              <div>
+                <h3>${escapeHtml(row.student.student_name || 'Alumno')}</h3>
+                <p>${escapeHtml(row.student.student_belt_color || '')} · ${row.examinerResults.length}/${expectedExaminers} evaluaciones recibidas</p>
+              </div>
+              <span class="status ${row.finalPassed ? 'passed' : 'failed'}">${row.examinerResults.length ? row.finalPassed ? 'Aprobado por media' : 'No alcanza la media' : 'Pendiente'}</span>
+            </div>
+            <div class="tribunal-average">
+              <strong>${row.examinerResults.length ? `${row.average}%` : '-'}</strong>
+              <span>media del tribunal · mínimo ${escapeHtml(exam.pass_percentage)}%</span>
+            </div>
+            <div class="tribunal-examiners">
+              ${row.examinerResults.length ? row.examinerResults.map((item) => `
+                <div>
+                  <strong>${escapeHtml(item.examinerName)}</strong>
+                  <span>${item.percentage}% · ${item.totalScore}/${item.maxScore} puntos</span>
+                  <span class="status ${item.passed ? 'passed' : 'failed'}">${item.passed ? 'Aprobado' : 'Suspenso'}</span>
+                </div>
+              `).join('') : '<p class="helper-text">Todavía no hay evaluaciones para este alumno.</p>'}
+            </div>
+          </article>
+        `).join('')}
+      </div>
+      <h3 style="margin-top:22px">Evaluaciones individuales</h3>
+      <div class="card-list">
+        ${exam.evaluations.length ? exam.evaluations.map(renderEvaluationCard).join('') : '<div class="empty">Todavía no hay evaluaciones enviadas.</div>'}
+      </div>
+    </section>
+  `;
 }
 
 async function saveProfessorReview(evaluationId) {

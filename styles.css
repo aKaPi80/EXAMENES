@@ -457,6 +457,72 @@ button, input, select, textarea { font: inherit; }
 .card h3, .tech-block h3, .result-card h3 { margin: 0 0 8px; color: var(--blue-dark); }
 .card p, .result-card p { margin: 6px 0; color: var(--muted); }
 
+.tribunal-list {
+  display: grid;
+  gap: 14px;
+}
+
+.tribunal-card {
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+
+.tribunal-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.tribunal-head h3 {
+  margin: 0 0 4px;
+  color: var(--blue-dark);
+}
+
+.tribunal-head p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.tribunal-average {
+  margin: 12px 0;
+  padding: 12px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid var(--line);
+}
+
+.tribunal-average strong {
+  display: block;
+  color: var(--blue-dark);
+  font-size: 1.8rem;
+}
+
+.tribunal-average span {
+  color: var(--muted);
+}
+
+.tribunal-examiners {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.tribunal-examiners > div {
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.tribunal-examiners span {
+  color: var(--muted);
+}
+
 .folder-layout {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);

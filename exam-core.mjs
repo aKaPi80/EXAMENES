@@ -19,6 +19,7 @@ export const examPrograms = [
   ['adultos', 'Adultos'],
   ['ninos', 'Niños'],
   ['ninos_progresivo', 'Niños progresivo'],
+  ['dan_tribunal', 'DAN tribunal'],
 ];
 
 export const childrenGrades = [
@@ -61,6 +62,7 @@ export const childrenCurrentGrades = {
 };
 
 export function gradeOptionsForProgram(programType) {
+  if (programType === 'dan_tribunal') return grades.filter(([id]) => ['shodan', 'nidan', 'sandan', 'yondan', 'godan'].includes(id));
   return programType === 'ninos' || programType === 'ninos_progresivo' ? childrenGrades : grades;
 }
 
