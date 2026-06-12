@@ -18,6 +18,7 @@ export const grades = [
 export const examPrograms = [
   ['adultos', 'Adultos'],
   ['ninos', 'Niños'],
+  ['ninos_progresivo', 'Niños progresivo'],
 ];
 
 export const childrenGrades = [
@@ -60,10 +61,11 @@ export const childrenCurrentGrades = {
 };
 
 export function gradeOptionsForProgram(programType) {
-  return programType === 'ninos' ? childrenGrades : grades;
+  return programType === 'ninos' || programType === 'ninos_progresivo' ? childrenGrades : grades;
 }
 
 export function sourceGradeForExamGrade(grade, programType = 'adultos') {
+  if (programType === 'ninos_progresivo') return '1kyu';
   if (programType === 'ninos') return childrenSourceGrades[grade] || grade;
   return grade;
 }
@@ -435,8 +437,8 @@ export function validateExamDraft({ title, grade, sourceGrade, programType = 'ad
   const resolvedSourceGrade = sourceGrade || sourceGradeForExamGrade(grade, programType);
 
   if (!String(title || '').trim()) errors.push('El título del examen es obligatorio.');
-  if (!grade || !isValidExamGrade(grade, programType) || !syllabusData[resolvedSourceGrade]) errors.push('Selecciona un grado válido.');
-  if (!Array.isArray(techniques) || techniques.length === 0) errors.push('Selecciona al menos una técnica.');
+  if (!grade || !isValidExamGrade(grade, programType) || (programType !== 'ninos_progresivo' && !syllabusData[resolvedSourceGrade])) errors.push('Selecciona un grado válido.');
+  if (!Array.isArray(techniques) || techniques.filter((item) => item?.type !== 'cut').length === 0) errors.push('Selecciona al menos una técnica o ejercicio evaluable.');
   if (!Array.isArray(students) || students.filter((student) => student.student_name?.trim()).length === 0) {
     errors.push('Agrega al menos un estudiante.');
   }

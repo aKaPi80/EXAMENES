@@ -277,6 +277,66 @@ button, input, select, textarea { font: inherit; }
   gap: 8px;
 }
 
+.progressive-builder {
+  border-color: rgba(46, 125, 50, 0.28);
+}
+
+.progressive-tools {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto auto minmax(180px, 0.6fr) auto;
+  gap: 10px;
+  align-items: end;
+  margin: 12px 0 16px;
+}
+
+.progressive-tools .field {
+  margin-bottom: 0;
+}
+
+.progressive-rows {
+  display: grid;
+  gap: 10px;
+}
+
+.progressive-row {
+  display: grid;
+  grid-template-columns: 46px minmax(140px, 0.8fr) minmax(240px, 1.3fr) 90px auto;
+  gap: 10px;
+  align-items: end;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.progressive-row .field {
+  margin-bottom: 0;
+}
+
+.progressive-cut-row {
+  grid-template-columns: 72px minmax(220px, 0.7fr) minmax(240px, 1fr) auto;
+  background: #fff8e8;
+  border-color: #f1d28e;
+}
+
+.progressive-cut-row .drag-handle {
+  color: #7a4a00;
+  background: #fff2cc;
+}
+
+.progressive-cut-stage {
+  margin-top: 18px;
+  padding: 20px;
+  border: 1px solid #f1d28e;
+  border-radius: 8px;
+  background: #fffaf0;
+}
+
+.progressive-cut-stage h2 {
+  margin: 4px 0 8px;
+  color: #7a4a00;
+}
+
 .notice {
   padding: 13px 15px;
   border-radius: 6px;
@@ -1139,6 +1199,7 @@ button, input, select, textarea { font: inherit; }
   .dialog-head { flex-direction: column; }
   .belt-order-layout, .belt-order-row { grid-template-columns: 1fr; }
   .belt-order-summary { position: static; }
+  .progressive-tools, .progressive-row, .progressive-cut-row { grid-template-columns: 1fr; }
   .tech-block-head { align-items: stretch; flex-direction: column; }
   .technique-stage { flex-direction: column; align-items: flex-start; }
   .print-report-head, .print-toolbar { flex-direction: column; }

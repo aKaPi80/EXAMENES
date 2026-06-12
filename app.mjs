@@ -21,7 +21,7 @@
   techniqueSection,
   techniqueSummary,
   validateExamDraft,
-} from './exam-core.mjs?v=20260608-belt-order-1';
+} from './exam-core.mjs?v=20260612-progressive-kids-1';
 
 const app = document.getElementById('app');
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -712,6 +712,10 @@ function selectedProgramType() {
   return $('#examProgram')?.value || 'adultos';
 }
 
+function isProgressiveKidsProgram(programType = selectedProgramType()) {
+  return programType === 'ninos_progresivo';
+}
+
 function selectedSourceGrade() {
   return sourceGradeForExamGrade($('#examGrade')?.value || '', selectedProgramType());
 }
@@ -723,14 +727,20 @@ function populateExamGradeOptions() {
     <option value="">Selecciona un grado</option>
     ${gradeOptionsForProgram(programType).map(([id, label]) => `<option value="${id}">${label}</option>`).join('')}
   `;
-  $('#gradeHelp').textContent = programType === 'ninos'
-    ? 'Selecciona el grado infantil objetivo. La app propondrá el temario adulto equivalente para que el profesor lo adapte.'
-    : 'Selecciona el grado objetivo del examen: Minarai/Blanco examina 5 KYU, 5 KYU examina 4 KYU, 4 KYU examina 3 KYU, y así sucesivamente.';
+  $('#gradeHelp').textContent = isProgressiveKidsProgram(programType)
+    ? 'Modo infantil progresivo: todos empiezan juntos. Construye un recorrido completo y coloca cortes para indicar cuándo se sienta cada grupo.'
+    : programType === 'ninos'
+      ? 'Selecciona el grado infantil objetivo. La app propondrá el temario adulto equivalente para que el profesor lo adapte.'
+      : 'Selecciona el grado objetivo del examen: Minarai/Blanco examina 5 KYU, 5 KYU examina 4 KYU, 4 KYU examina 3 KYU, y así sucesivamente.';
 }
 
 function renderTechniquesForGrade() {
   const grade = $('#examGrade').value;
   const programType = selectedProgramType();
+  if (isProgressiveKidsProgram(programType)) {
+    renderProgressiveKidsBuilder();
+    return;
+  }
   const sourceGrade = sourceGradeForExamGrade(grade, programType);
   const orderedItems = getOrderedTechniqueItems(grade, programType);
   const previousGohoJuhoItems = getPreviousGohoJuhoTechniqueItems(grade, programType);
@@ -778,9 +788,217 @@ function renderTechniquesForGrade() {
   refreshTechniquePositionOptions();
 }
 
+function progressiveCutOptions() {
+  return [
+    ['Blanco (Minarai)', 'Minarai / Blanco'],
+    ['Blanco-Amarillo', 'Blanco-Amarillo'],
+    ['Amarillo', '5 KYU / Amarillo'],
+    ['Amarillo-Naranja', 'Amarillo-Naranja'],
+    ['Naranja', '4 KYU / Naranja'],
+    ['Naranja-Verde', 'Naranja-Verde'],
+    ['Verde', '3 KYU / Verde'],
+    ['Verde-Azul', 'Verde-Azul'],
+    ['Azul', '2 KYU / Azul'],
+    ['Azul-Marron', 'Azul-Marron'],
+  ];
+}
+
+function progressiveSyllabusItems() {
+  const seen = new Set();
+  return grades
+    .filter(([grade]) => ['5kyu', '4kyu', '3kyu', '2kyu', '1kyu'].includes(grade))
+    .flatMap(([grade, gradeName]) => getOrderedTechniqueItems(grade).map((item) => ({
+      ...item,
+      source_grade: item.source_grade || grade,
+      gradeLabel: gradeName,
+    })))
+    .filter((item) => {
+      const key = `${item.source_grade}|${item.section}|${item.name}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function renderProgressiveKidsBuilder(items = []) {
+  const grade = $('#examGrade')?.value || '';
+  const syllabusItems = progressiveSyllabusItems();
+  state.techniqueRowCounter = 0;
+  $('#techniquesArea').innerHTML = `
+    <section class="tech-block progressive-builder">
+      <div class="tech-block-head">
+        <div>
+          <h3>Recorrido progresivo infantil</h3>
+          <p class="helper-text">Añade ejercicios en el orden real del examen y coloca cortes para indicar cuándo se sienta cada grupo.</p>
+        </div>
+      </div>
+      ${grade ? `<div class="notice">Grado máximo previsto: ${escapeHtml(gradeLabel(grade))}. Los alumnos de grados bajos terminarán en el corte que coloques.</div>` : ''}
+      <div class="progressive-tools">
+        <div class="field">
+          <label for="progressiveSyllabusSelect">Añadir desde syllabus kyu completo</label>
+          <select id="progressiveSyllabusSelect">
+            <option value="">Selecciona técnica o concepto</option>
+            ${syllabusItems.map((item, index) => `
+              <option value="${index}">${escapeHtml(item.gradeLabel)} · ${escapeHtml(item.section)} · ${escapeHtml(item.name)}</option>
+            `).join('')}
+          </select>
+        </div>
+        <button class="btn btn-secondary btn-small" id="addProgressiveSyllabusItem" type="button">Añadir del syllabus</button>
+        <button class="btn btn-secondary btn-small" id="addProgressiveManualItem" type="button">Añadir ejercicio manual</button>
+        <div class="field">
+          <label for="progressiveCutSelect">Añadir corte</label>
+          <select id="progressiveCutSelect">
+            ${progressiveCutOptions().map(([value, label]) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`).join('')}
+          </select>
+        </div>
+        <button class="btn btn-secondary btn-small" id="addProgressiveCut" type="button">Añadir corte</button>
+      </div>
+      <div id="progressiveRows" class="progressive-rows">
+        ${items.map(renderProgressiveKidsRow).join('')}
+      </div>
+    </section>
+  `;
+  $('#addProgressiveSyllabusItem')?.addEventListener('click', () => {
+    const item = syllabusItems[Number($('#progressiveSyllabusSelect')?.value)];
+    if (!item) return;
+    addProgressiveKidsRow({
+      ...item,
+      type: 'technique',
+      weight: item.weight || 1,
+      summary: techniqueSummary(item),
+    });
+    $('#progressiveSyllabusSelect').value = '';
+  });
+  $('#addProgressiveManualItem')?.addEventListener('click', () => addProgressiveKidsRow({
+    type: 'technique',
+    section: 'Ejercicios añadidos',
+    source_grade: selectedSourceGrade(),
+    name: '',
+    original_name: '',
+    weight: 1,
+    summary: '',
+  }));
+  $('#addProgressiveCut')?.addEventListener('click', () => {
+    const cutBelt = $('#progressiveCutSelect')?.value || 'MINARAI';
+    addProgressiveKidsRow(progressiveCutItem(cutBelt));
+  });
+  bindProgressiveKidsRows();
+}
+
+function progressiveCutItem(cutBelt) {
+  return {
+    type: 'cut',
+    section: 'Corte de grado',
+    name: `Corte: se sientan ${cutBelt}`,
+    original_name: `Corte: se sientan ${cutBelt}`,
+    cut_belt: cutBelt,
+    weight: 1,
+    summary: 'Aviso para retirar del examen a este grupo.',
+  };
+}
+
+function renderProgressiveKidsRow(item = {}) {
+  const rowId = nextTechniqueRowId();
+  if (item.type === 'cut') {
+    const cutBelt = item.cut_belt || 'MINARAI';
+    return `
+      <div class="progressive-row progressive-cut-row" data-progressive-row data-progressive-type="cut" data-technique-row-id="${escapeHtml(rowId)}">
+        <div class="drag-handle" aria-hidden="true">Corte</div>
+        <div class="field">
+          <label>Se sientan</label>
+          <select data-progressive-cut-belt>
+            ${progressiveCutOptions().map(([value, label]) => `<option value="${escapeHtml(value)}" ${value === cutBelt ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}
+          </select>
+        </div>
+        <p class="helper-text">Este paso no puntúa. A partir de aquí esos alumnos dejan de aparecer en las técnicas siguientes.</p>
+        <div class="custom-technique-actions">
+          <button class="btn btn-secondary btn-small" type="button" data-move-progressive="up">Subir</button>
+          <button class="btn btn-secondary btn-small" type="button" data-move-progressive="down">Bajar</button>
+          <button class="btn btn-danger btn-small" type="button" data-remove-progressive>Eliminar</button>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="progressive-row" data-progressive-row data-progressive-type="technique" data-technique-row-id="${escapeHtml(rowId)}">
+      <div class="drag-handle" aria-hidden="true">↕</div>
+      <div class="field">
+        <label>Sección</label>
+        <input data-progressive-section value="${escapeHtml(item.section || 'Ejercicios')}" />
+      </div>
+      <div class="field">
+        <label>Ejercicio / técnica</label>
+        <input data-progressive-name value="${escapeHtml(techniqueName(item))}" placeholder="Ej. Seiza, Hidari chudan gamae, Daisharin..." />
+      </div>
+      <label class="technique-weight">
+        <span>Peso</span>
+        <select data-progressive-weight aria-label="Peso de ejercicio">
+          ${[1, 2, 3, 4, 5].map((weight) => `<option value="${weight}" ${Number(item.weight || 1) === weight ? 'selected' : ''}>${weight}</option>`).join('')}
+        </select>
+      </label>
+      <input type="hidden" data-progressive-grade value="${escapeHtml(item.source_grade || selectedSourceGrade())}" />
+      <input type="hidden" data-progressive-original-name value="${escapeHtml(item.original_name || techniqueName(item))}" />
+      <input type="hidden" data-progressive-summary value="${escapeHtml(item.summary || techniqueSummary(item))}" />
+      <div class="custom-technique-actions">
+        <button class="btn btn-secondary btn-small" type="button" data-move-progressive="up">Subir</button>
+        <button class="btn btn-secondary btn-small" type="button" data-move-progressive="down">Bajar</button>
+        <button class="btn btn-danger btn-small" type="button" data-remove-progressive>Eliminar</button>
+      </div>
+    </div>
+  `;
+}
+
+function addProgressiveKidsRow(item) {
+  $('#progressiveRows')?.insertAdjacentHTML('beforeend', renderProgressiveKidsRow(item));
+  bindProgressiveKidsRows();
+}
+
+function bindProgressiveKidsRows() {
+  $$('[data-remove-progressive]').forEach((button) => {
+    button.onclick = () => button.closest('[data-progressive-row]')?.remove();
+  });
+  $$('[data-move-progressive]').forEach((button) => {
+    button.onclick = () => {
+      const row = button.closest('[data-progressive-row]');
+      if (!row) return;
+      if (button.dataset.moveProgressive === 'up' && row.previousElementSibling) {
+        row.parentNode.insertBefore(row, row.previousElementSibling);
+      }
+      if (button.dataset.moveProgressive === 'down' && row.nextElementSibling) {
+        row.parentNode.insertBefore(row.nextElementSibling, row);
+      }
+    };
+  });
+}
+
+function collectProgressiveKidsTechniques() {
+  return $$('[data-progressive-row]').map((row) => {
+    if (row.dataset.progressiveType === 'cut') {
+      const cutBelt = $('[data-progressive-cut-belt]', row)?.value || 'MINARAI';
+      return progressiveCutItem(cutBelt);
+    }
+    const name = $('[data-progressive-name]', row)?.value.trim() || '';
+    const originalName = $('[data-progressive-original-name]', row)?.value.trim() || name;
+    return {
+      type: 'technique',
+      section: $('[data-progressive-section]', row)?.value.trim() || 'Ejercicios',
+      source_grade: $('[data-progressive-grade]', row)?.value.trim() || selectedSourceGrade(),
+      name,
+      original_name: originalName,
+      weight: Number($('[data-progressive-weight]', row)?.value || 1),
+      summary: $('[data-progressive-summary]', row)?.value.trim() || '',
+    };
+  }).filter((item) => item.type === 'cut' || item.name);
+}
+
 function renderTemplateTechniques(template) {
   const grade = $('#examGrade').value;
   const programType = selectedProgramType();
+  if (isProgressiveKidsProgram(programType)) {
+    renderProgressiveKidsBuilder(template.techniques || []);
+    return;
+  }
   const sourceGrade = template.source_grade || sourceGradeForExamGrade(grade, programType);
   const previousGohoJuhoItems = getPreviousGohoJuhoTechniqueItems(grade, programType);
   const blocks = groupTechniqueItemsBySection(template.techniques || []);
@@ -1038,7 +1256,7 @@ function addStudentRow(student = {}) {
 }
 
 function studentBeltOptions(selected = '') {
-  const belts = ['Blanco (Minarai)', 'Amarillo', 'Naranja', 'Verde', 'Azul', 'Marrón', 'Negro'];
+  const belts = ['Blanco (Minarai)', 'Blanco-Amarillo', 'Amarillo', 'Amarillo-Naranja', 'Naranja', 'Naranja-Verde', 'Verde', 'Verde-Azul', 'Azul', 'Azul-Marron', 'Marrón', 'Negro'];
   const normalized = normalizeStudentBelt(selected);
   return belts.map((belt) => `<option${belt === normalized ? ' selected' : ''}>${escapeHtml(belt)}</option>`).join('');
 }
@@ -1112,6 +1330,38 @@ function currentBeltForTargetGrade(targetGrade) {
   return belts[targetGrade] || '';
 }
 
+function progressiveCurrentGradesForTargetGrade(targetGrade) {
+  const orderedTargets = [
+    'children_blanco_amarillo',
+    'children_5kyu',
+    'children_amarillo_naranja',
+    'children_4kyu',
+    'children_naranja_verde',
+    'children_3kyu',
+    'children_verde_azul',
+    'children_2kyu',
+    'children_azul_marron',
+    'children_1kyu',
+  ];
+  const targetIndex = orderedTargets.indexOf(targetGrade);
+  const includedTargets = targetIndex >= 0 ? orderedTargets.slice(0, targetIndex + 1) : orderedTargets;
+  return includedTargets.map((grade) => currentGradeForTargetGrade(grade)).filter(Boolean);
+}
+
+function uniqueSheetStudents(students) {
+  const seen = new Set();
+  return students.filter((student) => {
+    const key = [
+      sheetStudentRef(student),
+      sheetStudentSourceId(student),
+      String(student.nombre || student.name || '').trim().toLowerCase(),
+    ].filter(Boolean).join('|');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 async function loadSheetStudentsForExam() {
   const grade = $('#examGrade')?.value || '';
   const programType = selectedProgramType();
@@ -1129,6 +1379,22 @@ async function loadSheetStudentsForExam() {
   area.innerHTML = '<div class="notice">Cargando alumnos desde la base de datos...</div>';
 
   try {
+    if (isProgressiveKidsProgram(programType)) {
+      const currentGrades = progressiveCurrentGradesForTargetGrade(grade);
+      const payloads = await Promise.all(currentGrades.map((currentGrade) => fetchSheetStudentsJsonp({
+        token,
+        programType: 'ninos',
+        targetGrade: grade,
+        targetGradeLabel: gradeSheetLabel(grade),
+        currentGrade,
+      })));
+      const students = uniqueSheetStudents(payloads.flatMap((payload) =>
+        Array.isArray(payload.alumnos) ? payload.alumnos : Array.isArray(payload.students) ? payload.students : []
+      ));
+      renderSheetStudentPicker(students, grade);
+      return;
+    }
+
     const payload = await fetchSheetStudentsJsonp({
       token,
       programType,
@@ -1290,6 +1556,9 @@ function collectDraft() {
   const form = $('#examForm');
   const programType = selectedProgramType();
   const grade = $('#examGrade').value;
+  const techniques = isProgressiveKidsProgram(programType)
+    ? collectProgressiveKidsTechniques()
+    : getSelectedTechniques(form);
   return {
     title: $('#examTitle').value.trim(),
     folderId: $('#examFolder')?.value || null,
@@ -1297,7 +1566,7 @@ function collectDraft() {
     grade,
     sourceGrade: sourceGradeForExamGrade(grade, programType),
     passPercentage: Number($('#passPercentage').value),
-    techniques: getSelectedTechniques(form),
+    techniques,
     students: $$('.student-row').map((row, idx) => ({
       student_name: $('.student-name', row).value.trim(),
       student_belt_color: $('.student-belt', row).value,
@@ -1471,7 +1740,7 @@ function renderExamDetails() {
     <div class="section-head">
       <div>
         <h2>${escapeHtml(exam.title)}</h2>
-        <p>${escapeHtml(gradeLabel(exam.grade))} · ${(exam.techniques || []).length} técnicas · aprobado desde ${exam.pass_percentage}%</p>
+        <p>${escapeHtml(gradeLabel(exam.grade))} · ${(exam.techniques || []).filter((item) => item?.type !== 'cut').length} técnicas · aprobado desde ${exam.pass_percentage}%</p>
       </div>
       <div class="btn-row">
         <button class="btn btn-secondary" id="printStudyExam">Imprimir temario para alumnos</button>
@@ -1531,12 +1800,13 @@ async function copyLink(url) {
 
 function renderEvaluationCard(evaluation) {
   const techniqueEvaluations = evaluation.technique_evaluations || evaluation.technique_scores || [];
+  const evaluableTechniques = techniqueEvaluations.filter((item) => item?.type !== 'cut');
   const passPercentage = state.selectedExam?.pass_percentage || 0;
   const adjustmentPoints = evaluationAdjustmentPoints(evaluation);
   const originalSummary = calculateEvaluationSummary(techniqueEvaluations, passPercentage);
   const summary = calculateEvaluationSummary(techniqueEvaluations, passPercentage, adjustmentPoints);
-  const skippedCount = techniqueEvaluations.filter((item) => item.skipped).length;
-  const evaluatedCount = techniqueEvaluations.length - skippedCount;
+  const skippedCount = evaluableTechniques.filter((item) => item.skipped).length;
+  const evaluatedCount = evaluableTechniques.length - skippedCount;
   return `
     <article class="result-card">
       <h3>${escapeHtml(evaluation.exam_students?.student_name || 'Estudiante')}</h3>
@@ -1564,7 +1834,7 @@ function renderEvaluationCard(evaluation) {
       </details>
       <details style="margin-top:10px">
         <summary>Técnicas evaluadas</summary>
-        ${techniqueEvaluations.map((item) => `
+        ${evaluableTechniques.map((item) => `
           <p><strong>${escapeHtml(techniqueName(item))}</strong>${techniqueSection(item) ? ` <span class="muted-inline">(${escapeHtml(techniqueSection(item))})</span>` : ''}: ${item.skipped ? 'omitida' : `${item.score} puntos`} ${item.notes ? `· ${escapeHtml(item.notes)}` : ''}</p>
         `).join('')}
       </details>
@@ -1688,7 +1958,7 @@ function beltOrderColorForExamGrade(grade) {
 }
 
 function defaultBeltSizeForExam(exam) {
-  return exam?.program_type === 'ninos' ? '240cm' : '300cm';
+  return exam?.program_type === 'ninos' || exam?.program_type === 'ninos_progresivo' ? '240cm' : '300cm';
 }
 
 function buildDefaultBeltOrderItems(exam) {
@@ -1799,7 +2069,7 @@ function openBeltOrderDialog() {
         <div class="dialog-head">
           <div>
             <h2 id="beltOrderTitle">Pedido de cinturones</h2>
-            <p>${escapeHtml(exam.title)} · ${escapeHtml(gradeLabel(exam.grade))} · ${exam.program_type === 'ninos' ? 'Niños' : 'Adultos'}</p>
+            <p>${escapeHtml(exam.title)} · ${escapeHtml(gradeLabel(exam.grade))} · ${exam.program_type === 'adultos' ? 'Adultos' : 'Niños'}</p>
           </div>
           <button class="btn btn-secondary btn-small" id="closeBeltOrderDialog" type="button">Cerrar</button>
         </div>
@@ -1887,12 +2157,13 @@ async function sendBeltOrderToSheet() {
 
 function buildStudyExamReport(exam) {
   const techniques = exam.techniques || [];
+  const evaluableTechniques = techniques.filter((item) => item?.type !== 'cut');
   return {
     clubName: state.professor.club_name,
     examTitle: exam.title,
     gradeLabel: gradeLabel(exam.grade),
-    programLabel: exam.program_type === 'ninos' ? 'Examen infantil' : 'Examen adultos',
-    techniqueCount: techniques.length,
+    programLabel: exam.program_type === 'adultos' ? 'Examen adultos' : exam.program_type === 'ninos_progresivo' ? 'Examen infantil progresivo' : 'Examen infantil',
+    techniqueCount: evaluableTechniques.length,
     sections: groupTechniqueItemsBySection(techniques),
   };
 }
@@ -2451,8 +2722,10 @@ async function renderExaminerApp(token) {
       section: techniqueSection(technique),
       weight: technique.weight || 1,
       score: null,
-      skipped: false,
+      skipped: technique?.type === 'cut',
       notes: '',
+      type: technique?.type || 'technique',
+      cut_belt: technique?.cut_belt || '',
     }));
   });
 
@@ -2464,6 +2737,10 @@ function renderExaminerForm() {
   const techniques = payload.exam.techniques || [];
   const techniqueIndex = state.examinerTechniqueIndex;
   const currentTechnique = techniques[techniqueIndex];
+  if (isCutTechnique(currentTechnique)) {
+    renderProgressiveCutStep(payload, techniques, techniqueIndex, currentTechnique);
+    return;
+  }
   const currentTechniqueName = techniqueName(currentTechnique);
   const currentTechniqueSummary = techniqueSummary(currentTechnique);
   const currentTechniqueWeight = currentTechnique?.weight || 1;
@@ -2472,7 +2749,8 @@ function renderExaminerForm() {
   const sectionChanged = techniqueIndex === 0 || currentSection !== previousSection;
   const sectionLead = techniqueIndex === 0 ? 'Empezamos con' : 'Seguimos con';
   const progress = Math.round(((techniqueIndex + 1) / techniques.length) * 100);
-  const completedForTechnique = payload.students.filter((student) => answerComplete(state.examinerAnswers[student.id][techniqueIndex])).length;
+  const activeStudents = payload.students.filter((student) => isStudentActiveAtTechnique(student, techniques, techniqueIndex));
+  const completedForTechnique = activeStudents.filter((student) => answerComplete(state.examinerAnswers[student.id][techniqueIndex])).length;
 
   app.innerHTML = `
     <section class="examiner-card">
@@ -2493,10 +2771,10 @@ function renderExaminerForm() {
           <p class="technique-weight-label">Peso ${escapeHtml(currentTechniqueWeight)}</p>
           ${currentTechniqueSummary ? `<div class="technique-summary">${escapeHtml(currentTechniqueSummary)}</div>` : ''}
         </div>
-        <span class="status ${completedForTechnique === payload.students.length ? 'passed' : 'draft'}">${completedForTechnique}/${payload.students.length} alumnos</span>
+        <span class="status ${completedForTechnique === activeStudents.length ? 'passed' : 'draft'}">${completedForTechnique}/${activeStudents.length} alumnos activos</span>
       </div>
       <form id="examinerForm">
-        ${payload.students.map((student) => renderStudentTechniqueRow(student, techniqueIndex)).join('')}
+        ${activeStudents.length ? activeStudents.map((student) => renderStudentTechniqueRow(student, techniqueIndex)).join('') : '<div class="empty">No quedan alumnos activos en este punto del examen.</div>'}
         <div class="btn-row" style="margin-top:22px;justify-content:space-between">
           <button class="btn btn-secondary" type="button" id="prevTechnique" ${techniqueIndex === 0 ? 'disabled' : ''}>Técnica anterior</button>
           <button class="btn btn-secondary" type="button" id="skipTechnique">Omitir técnica para todos</button>
@@ -2516,6 +2794,86 @@ function renderExaminerForm() {
   $('#nextTechnique')?.addEventListener('click', () => moveTechnique(1));
   $('#skipTechnique').addEventListener('click', skipCurrentTechniqueForAll);
   $('#examinerForm').addEventListener('submit', submitExaminerEvaluation);
+}
+
+function isCutTechnique(item) {
+  return item?.type === 'cut';
+}
+
+function normalizeBeltText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function beltMatchesCut(studentBelt, cutBelt) {
+  const student = normalizeBeltText(studentBelt);
+  const cut = normalizeBeltText(cutBelt);
+  return student === cut || student.includes(cut) || cut.includes(student);
+}
+
+function studentCutIndex(student, techniques) {
+  return techniques.findIndex((item) => isCutTechnique(item) && beltMatchesCut(student.student_belt_color, item.cut_belt));
+}
+
+function isStudentActiveAtTechnique(student, techniques, techniqueIndex) {
+  const cutIndex = studentCutIndex(student, techniques);
+  return cutIndex === -1 || techniqueIndex <= cutIndex;
+}
+
+function renderProgressiveCutStep(payload, techniques, techniqueIndex, currentTechnique) {
+  payload.students.forEach((student) => {
+    const answer = state.examinerAnswers[student.id][techniqueIndex];
+    answer.score = null;
+    answer.skipped = true;
+  });
+
+  const progress = Math.round(((techniqueIndex + 1) / techniques.length) * 100);
+  const cutBelt = currentTechnique.cut_belt || techniqueName(currentTechnique).replace(/^Corte:\s*se sientan\s*/i, '');
+  const seatedStudents = payload.students.filter((student) => beltMatchesCut(student.student_belt_color, cutBelt));
+  const stillActive = payload.students.filter((student) => isStudentActiveAtTechnique(student, techniques, techniqueIndex + 1));
+
+  app.innerHTML = `
+    <section class="examiner-card">
+      <div id="noticeOutlet"></div>
+      <div class="examiner-header">
+        <div>
+          <h1>${escapeHtml(payload.exam.title)}</h1>
+          <p>${escapeHtml(gradeLabel(payload.exam.grade))} · Examinador: ${escapeHtml(payload.examiner.name)}</p>
+        </div>
+        <span class="status active">Corte ${techniqueIndex + 1} de ${techniques.length}</span>
+      </div>
+      <div class="progress"><span style="width:${progress}%"></span></div>
+      <div class="progressive-cut-stage">
+        <p class="print-kicker">Corte de grado</p>
+        <h2>Mandar sentarse a ${escapeHtml(cutBelt)}</h2>
+        <p>Este paso no puntúa. A partir de la siguiente técnica, estos alumnos quedan fuera del resto del examen.</p>
+        <div class="grid-2">
+          <section class="card">
+            <h3>Se sientan ahora</h3>
+            ${seatedStudents.length ? seatedStudents.map((student) => `<p>${escapeHtml(student.student_name)} · ${escapeHtml(student.student_belt_color)}</p>`).join('') : '<p>No hay alumnos de este cinturón en la convocatoria.</p>'}
+          </section>
+          <section class="card">
+            <h3>Continúan</h3>
+            ${stillActive.length ? stillActive.map((student) => `<p>${escapeHtml(student.student_name)} · ${escapeHtml(student.student_belt_color)}</p>`).join('') : '<p>No quedan alumnos activos después de este corte.</p>'}
+          </section>
+        </div>
+      </div>
+      <div class="btn-row" style="margin-top:22px;justify-content:space-between">
+        <button class="btn btn-secondary" type="button" id="prevTechnique" ${techniqueIndex === 0 ? 'disabled' : ''}>Paso anterior</button>
+        ${techniqueIndex === techniques.length - 1
+          ? '<button class="btn btn-success" type="button" id="submitFromCut">Enviar evaluación completa</button>'
+          : '<button class="btn btn-primary" type="button" id="nextTechnique">Siguiente paso</button>'}
+      </div>
+    </section>
+  `;
+
+  $('#prevTechnique').addEventListener('click', () => moveTechnique(-1));
+  $('#nextTechnique')?.addEventListener('click', () => moveTechnique(1));
+  $('#submitFromCut')?.addEventListener('click', () => submitExaminerEvaluation(new Event('submit')));
 }
 
 function renderStudentTechniqueRow(student, techniqueIndex) {
@@ -2565,12 +2923,16 @@ function answerComplete(answer) {
 }
 
 function moveTechnique(delta) {
-  state.examinerTechniqueIndex += delta;
+  const maxIndex = Math.max(0, (state.examinerPayload?.exam?.techniques || []).length - 1);
+  state.examinerTechniqueIndex = Math.min(maxIndex, Math.max(0, state.examinerTechniqueIndex + delta));
   renderExaminerForm();
 }
 
 function skipCurrentTechniqueForAll() {
-  state.examinerPayload.students.forEach((student) => {
+  const techniques = state.examinerPayload.exam.techniques || [];
+  state.examinerPayload.students
+    .filter((student) => isStudentActiveAtTechnique(student, techniques, state.examinerTechniqueIndex))
+    .forEach((student) => {
     const answer = state.examinerAnswers[student.id][state.examinerTechniqueIndex];
     answer.score = null;
     answer.skipped = true;
@@ -2578,11 +2940,30 @@ function skipCurrentTechniqueForAll() {
   renderExaminerForm();
 }
 
+function finalizeProgressiveAnswers() {
+  const techniques = state.examinerPayload.exam.techniques || [];
+  state.examinerPayload.students.forEach((student) => {
+    techniques.forEach((technique, index) => {
+      const answer = state.examinerAnswers[student.id][index];
+      if (isCutTechnique(technique) || !isStudentActiveAtTechnique(student, techniques, index)) {
+        answer.score = null;
+        answer.skipped = true;
+      }
+    });
+  });
+}
+
 async function submitExaminerEvaluation(event) {
   event.preventDefault();
 
+  finalizeProgressiveAnswers();
+  const techniques = state.examinerPayload.exam.techniques || [];
   const missing = state.examinerPayload.students.some((student) =>
-    state.examinerAnswers[student.id].some((answer) => !answerComplete(answer))
+    state.examinerAnswers[student.id].some((answer, index) =>
+      !isCutTechnique(techniques[index]) &&
+      isStudentActiveAtTechnique(student, techniques, index) &&
+      !answerComplete(answer)
+    )
   );
   if (missing) {
     showErrors('Hay técnicas sin evaluar u omitir. Usa Omitir si no quieres puntuar alguna técnica.');
