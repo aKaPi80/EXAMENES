@@ -21,7 +21,7 @@
   techniqueSection,
   techniqueSummary,
   validateExamDraft,
-} from './exam-core.mjs?v=20260612-adult-visual-order-1';
+} from './exam-core.mjs?v=20260612-adult-order-stable-1';
 
 const app = document.getElementById('app');
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1454,20 +1454,6 @@ function bindTechniqueOrderInputs() {
   });
 }
 
-function sortTechniqueRowsByOrder() {
-  const rows = getTechniqueRows()
-    .sort((a, b) => techniqueRowOrder(a) - techniqueRowOrder(b));
-  rows.forEach((row, index) => {
-    if (index === 0) {
-      const firstCurrentRow = getTechniqueRows().find((item) => item !== row);
-      firstCurrentRow?.before(row);
-      return;
-    }
-    rows[index - 1].after(row);
-  });
-  refreshTechniquePositionOptions();
-}
-
 function applyTechniqueInsertionOrder(activeRow) {
   if (!activeRow) return;
 
@@ -1495,7 +1481,27 @@ function applyTechniqueInsertionOrder(activeRow) {
   }
 
   activeInput.value = String(desiredOrder);
-  sortTechniqueRowsByOrder();
+  placeTechniqueRowByOrder(activeRow);
+  refreshTechniquePositionOptions();
+}
+
+function placeTechniqueRowByOrder(activeRow) {
+  const activeOrder = techniqueRowOrder(activeRow);
+  const rows = getTechniqueRows()
+    .filter((row) => row !== activeRow)
+    .sort((a, b) => techniqueRowOrder(a) - techniqueRowOrder(b));
+
+  const previous = [...rows].reverse().find((row) => techniqueRowOrder(row) <= activeOrder);
+  const next = rows.find((row) => techniqueRowOrder(row) > activeOrder);
+
+  if (previous) {
+    previous.after(activeRow);
+    return;
+  }
+
+  if (next) {
+    next.before(activeRow);
+  }
 }
 
 function refreshTechniquePositionOptions(selectedRowId = '') {
