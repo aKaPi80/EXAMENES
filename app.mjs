@@ -21,7 +21,7 @@
   techniqueSection,
   techniqueSummary,
   validateExamDraft,
-} from './exam-core.mjs?v=20260612-technique-name-visible-2';
+} from './exam-core.mjs?v=20260612-adult-visual-order-1';
 
 const app = document.getElementById('app');
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1457,14 +1457,13 @@ function bindTechniqueOrderInputs() {
 function sortTechniqueRowsByOrder() {
   const rows = getTechniqueRows()
     .sort((a, b) => techniqueRowOrder(a) - techniqueRowOrder(b));
-  rows.forEach((row) => {
-    const customBlock = row.closest('.custom-tech-block');
-    if (customBlock && $('#customTechniquesArea') && row.classList.contains('custom-technique-row')) {
-      $('#customTechniquesArea').appendChild(row);
+  rows.forEach((row, index) => {
+    if (index === 0) {
+      const firstCurrentRow = getTechniqueRows().find((item) => item !== row);
+      firstCurrentRow?.before(row);
       return;
     }
-    const parent = row.parentNode;
-    parent?.appendChild(row);
+    rows[index - 1].after(row);
   });
   refreshTechniquePositionOptions();
 }
