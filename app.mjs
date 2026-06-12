@@ -21,7 +21,7 @@
   techniqueSection,
   techniqueSummary,
   validateExamDraft,
-} from './exam-core.mjs?v=20260612-progressive-kids-1';
+} from './exam-core.mjs?v=20260612-progressive-bank-1';
 
 const app = document.getElementById('app');
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -844,6 +844,7 @@ function renderProgressiveKidsBuilder(items = []) {
           </select>
         </div>
         <button class="btn btn-secondary btn-small" id="addProgressiveSyllabusItem" type="button">Añadir del syllabus</button>
+        <button class="btn btn-secondary btn-small" id="openProgressiveBank" type="button">Seleccionar varios</button>
         <button class="btn btn-secondary btn-small" id="addProgressiveManualItem" type="button">Añadir ejercicio manual</button>
         <div class="field">
           <label for="progressiveCutSelect">Añadir corte</label>
@@ -869,6 +870,7 @@ function renderProgressiveKidsBuilder(items = []) {
     });
     $('#progressiveSyllabusSelect').value = '';
   });
+  $('#openProgressiveBank')?.addEventListener('click', () => openProgressiveSyllabusBank(syllabusItems));
   $('#addProgressiveManualItem')?.addEventListener('click', () => addProgressiveKidsRow({
     type: 'technique',
     section: 'Ejercicios añadidos',
@@ -883,6 +885,94 @@ function renderProgressiveKidsBuilder(items = []) {
     addProgressiveKidsRow(progressiveCutItem(cutBelt));
   });
   bindProgressiveKidsRows();
+}
+
+function openProgressiveSyllabusBank(syllabusItems = progressiveSyllabusItems()) {
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="dialog-backdrop">
+      <section class="dialog-card progressive-bank-dialog" role="dialog" aria-modal="true" aria-labelledby="progressiveBankTitle">
+        <div class="dialog-head">
+          <div>
+            <h2 id="progressiveBankTitle">Banco de ejercicios</h2>
+            <p>Marca varias técnicas o conceptos y añádelos al recorrido progresivo.</p>
+          </div>
+          <button class="btn btn-secondary btn-small" id="closeProgressiveBank" type="button">Cerrar</button>
+        </div>
+        <div class="progressive-bank-toolbar">
+          <div class="field">
+            <label for="progressiveBankSearch">Buscar</label>
+            <input id="progressiveBankSearch" placeholder="Ej. daisharin, seiza, geri, gamae..." />
+          </div>
+          <button class="btn btn-secondary btn-small" id="clearProgressiveBankSelection" type="button">Limpiar selección</button>
+          <button class="btn btn-primary btn-small" id="addProgressiveBankSelection" type="button">Añadir seleccionados</button>
+        </div>
+        <div class="progressive-bank-list" id="progressiveBankList">
+          ${renderProgressiveBankItems(syllabusItems)}
+        </div>
+      </section>
+    </div>
+  `);
+
+  $('#closeProgressiveBank').addEventListener('click', closeProgressiveSyllabusBank);
+  $('#clearProgressiveBankSelection').addEventListener('click', () => {
+    $$('.progressive-bank-check').forEach((input) => { input.checked = false; });
+  });
+  $('#addProgressiveBankSelection').addEventListener('click', () => {
+    const selectedItems = $$('.progressive-bank-check:checked')
+      .map((input) => syllabusItems[Number(input.dataset.itemIndex)])
+      .filter(Boolean);
+    if (!selectedItems.length) {
+      showErrors('Selecciona al menos un ejercicio del banco.');
+      return;
+    }
+    selectedItems.forEach((item) => addProgressiveKidsRow({
+      ...item,
+      type: 'technique',
+      weight: item.weight || 1,
+      summary: techniqueSummary(item),
+    }));
+    closeProgressiveSyllabusBank();
+  });
+  $('#progressiveBankSearch').addEventListener('input', (event) => {
+    filterProgressiveBank(event.target.value);
+  });
+}
+
+function closeProgressiveSyllabusBank() {
+  $('.progressive-bank-dialog')?.closest('.dialog-backdrop')?.remove();
+}
+
+function renderProgressiveBankItems(syllabusItems) {
+  return groupTechniqueItemsBySection(syllabusItems).map(([section, items]) => `
+    <section class="progressive-bank-section">
+      <h3>${escapeHtml(section || 'Ejercicios')}</h3>
+      <div class="progressive-bank-items">
+        ${items.map((item) => {
+          const globalIndex = syllabusItems.indexOf(item);
+          const searchText = `${item.gradeLabel} ${item.section} ${item.name}`.toLowerCase();
+          return `
+            <label class="progressive-bank-item" data-bank-search="${escapeHtml(searchText)}">
+              <input class="progressive-bank-check" type="checkbox" data-item-index="${globalIndex}" />
+              <span>
+                <strong>${escapeHtml(item.name)}</strong>
+                <small>${escapeHtml(item.gradeLabel)} · ${escapeHtml(item.section)}</small>
+              </span>
+            </label>
+          `;
+        }).join('')}
+      </div>
+    </section>
+  `).join('');
+}
+
+function filterProgressiveBank(query) {
+  const normalizedQuery = String(query || '').trim().toLowerCase();
+  $$('.progressive-bank-item').forEach((item) => {
+    item.hidden = normalizedQuery && !item.dataset.bankSearch.includes(normalizedQuery);
+  });
+  $$('.progressive-bank-section').forEach((section) => {
+    section.hidden = !$('.progressive-bank-item:not([hidden])', section);
+  });
 }
 
 function progressiveCutItem(cutBelt) {
