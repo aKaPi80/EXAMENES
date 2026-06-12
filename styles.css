@@ -608,13 +608,15 @@ button, input, select, textarea { font: inherit; }
 
 .technique-editor {
   display: grid;
-  grid-template-columns: auto 72px minmax(0, 1fr) 76px;
+  grid-template-columns: auto minmax(0, 1fr) 76px;
   gap: 9px;
   align-items: flex-start;
 }
 
 .technique-check {
   display: inline-flex;
+  grid-column: 1;
+  grid-row: 2;
 }
 
 .technique-editor input[type="checkbox"] {
@@ -623,6 +625,8 @@ button, input, select, textarea { font: inherit; }
 }
 
 .technique-name-input {
+  grid-column: 1 / -1;
+  grid-row: 1;
   width: 100%;
   min-width: 0;
   border: 1px solid var(--line);
@@ -638,6 +642,8 @@ button, input, select, textarea { font: inherit; }
 }
 
 .technique-weight {
+  grid-column: 3;
+  grid-row: 2;
   display: grid;
   gap: 5px;
   min-width: 76px;
@@ -647,6 +653,8 @@ button, input, select, textarea { font: inherit; }
 }
 
 .technique-order {
+  grid-column: 2;
+  grid-row: 2;
   display: grid;
   gap: 5px;
   min-width: 72px;
