@@ -738,6 +738,14 @@ function isDanTribunalProgram(programType = selectedProgramType()) {
   return programType === 'dan_tribunal';
 }
 
+function isKidsTribunalProgram(programType = selectedProgramType()) {
+  return programType === 'ninos' || programType === 'ninos_progresivo';
+}
+
+function isTribunalResultProgram(programType = selectedProgramType()) {
+  return isDanTribunalProgram(programType) || isKidsTribunalProgram(programType);
+}
+
 function selectedSourceGrade() {
   return sourceGradeForExamGrade($('#examGrade')?.value || '', selectedProgramType());
 }
@@ -750,11 +758,11 @@ function populateExamGradeOptions() {
     ${gradeOptionsForProgram(programType).map(([id, label]) => `<option value="${id}">${label}</option>`).join('')}
   `;
   $('#gradeHelp').textContent = isProgressiveKidsProgram(programType)
-    ? 'Modo infantil progresivo: todos empiezan juntos. Construye un recorrido completo y coloca cortes para indicar cuándo se sienta cada grupo.'
+    ? 'Modo infantil progresivo: todos empiezan juntos. Construye un recorrido completo, coloca cortes y usa varios examinadores si quieres calcular una media final.'
     : isDanTribunalProgram(programType)
       ? 'Modo DAN tribunal: varios examinadores evalúan el mismo examen y el panel calcula la media final por alumno.'
       : programType === 'ninos'
-      ? 'Selecciona el grado infantil objetivo. La app propondrá el temario adulto equivalente para que el profesor lo adapte.'
+      ? 'Selecciona el grado infantil objetivo. La app propondrá el temario adulto equivalente y permitirá media final si participan varios examinadores.'
       : 'Selecciona el grado objetivo del examen: Minarai/Blanco examina 5 KYU, 5 KYU examina 4 KYU, 4 KYU examina 3 KYU, y así sucesivamente.';
 }
 
@@ -2350,10 +2358,10 @@ async function viewExamDetails(examId) {
   }
 
   let tribunalReviews = [];
-  if (exam.program_type === 'dan_tribunal') {
+  if (isTribunalResultProgram(exam.program_type)) {
     const reviewsRes = await supabase.from('tribunal_reviews').select('*').eq('exam_id', examId);
     if (reviewsRes.error) {
-      showErrors(`Falta preparar Supabase para revisión final DAN tribunal: ${reviewsRes.error.message}`);
+      showErrors(`Falta preparar Supabase para revisión final de tribunal: ${reviewsRes.error.message}`);
       return;
     }
     tribunalReviews = reviewsRes.data || [];
@@ -2403,7 +2411,7 @@ function renderExamDetails() {
           `).join('') || '<p>No hay examinadores.</p>'}
         </section>
       </aside>
-      ${exam.program_type === 'dan_tribunal' ? renderDanTribunalResults(exam) : `
+      ${isTribunalResultProgram(exam.program_type) ? renderTribunalResults(exam) : `
         <section>
           <h3>Resultados recibidos</h3>
           <div class="card-list">
@@ -2534,12 +2542,25 @@ function tribunalResultValue(row, exam) {
   return row.finalPassed ? 'passed' : 'failed';
 }
 
-function renderDanTribunalResults(exam) {
+function tribunalResultsTitle(exam) {
+  return isDanTribunalProgram(exam.program_type)
+    ? 'Resultado del tribunal'
+    : 'Resultado final por examinadores';
+}
+
+function tribunalResultsHelpText(exam) {
+  return isDanTribunalProgram(exam.program_type)
+    ? 'Cada examinador evalúa el mismo examen. El panel calcula la media final por alumno y permite la revisión final del maestro.'
+    : 'Cada examinador infantil puede enviar su propia evaluación. El panel calcula la media por alumno y permite la revisión final del maestro.';
+}
+
+function renderTribunalResults(exam) {
   const rows = tribunalRowsForExam(exam);
   const expectedExaminers = exam.links?.length || 0;
   return `
     <section>
-      <h3>Resultado del tribunal</h3>
+      <h3>${tribunalResultsTitle(exam)}</h3>
+      <p class="helper-text">${tribunalResultsHelpText(exam)}</p>
       <div class="tribunal-list">
         ${rows.map((row) => `
           <article class="tribunal-card">
@@ -2556,7 +2577,7 @@ function renderDanTribunalResults(exam) {
             </div>
             <details class="review-box tribunal-review-box" ${row.review ? 'open' : ''}>
               <summary>Revisión final del maestro</summary>
-              <p class="helper-text">Este ajuste decide el resultado final del tribunal. El motivo es interno.</p>
+              <p class="helper-text">Este ajuste decide el resultado final. El motivo es interno.</p>
               <div class="grid-3">
                 <div class="field">
                   <label for="tribunalAdjustment-${escapeHtml(row.student.id)}">Ajuste</label>
@@ -2658,7 +2679,7 @@ async function registerPassedStudentsInSheet() {
   const exam = state.selectedExam;
   if (!exam) return;
 
-  if (exam.program_type === 'dan_tribunal') {
+  if (isTribunalResultProgram(exam.program_type)) {
     await registerPassedTribunalStudentsInSheet(exam);
     return;
   }
@@ -2722,7 +2743,7 @@ async function registerPassedTribunalStudentsInSheet(exam) {
   const passedRows = tribunalRowsForExam(exam).filter((row) => row.examinerResults.length && row.finalPassed);
 
   if (passedRows.length === 0) {
-    notify('No hay alumnos aprobados por el tribunal para registrar.', 'warning');
+    notify('No hay alumnos aprobados por el resultado final para registrar.', 'warning');
     return;
   }
 
@@ -2731,20 +2752,21 @@ async function registerPassedTribunalStudentsInSheet(exam) {
   if (!token) return;
   localStorage.setItem('skbcSheetToken', token);
 
-  if (!confirm(`Se registrarán ${passedRows.length} alumno(s) aprobado(s) por el tribunal. ¿Continuar?`)) {
+  if (!confirm(`Se registrarán ${passedRows.length} alumno(s) aprobado(s) por el resultado final. ¿Continuar?`)) {
     return;
   }
 
   const failed = [];
+  const examinerName = isDanTribunalProgram(exam.program_type) ? 'Tribunal DAN' : 'Tribunal infantil';
   for (const row of passedRows) {
     const payload = buildExamSheetPayload({
       studentName: row.student.student_name || '',
       studentRef: row.student.student_ref || '',
       studentSourceId: row.student.student_source_id || '',
-      programType: exam.program_type || 'dan_tribunal',
+      programType: exam.program_type || 'adultos',
       grade: exam.grade,
       sourceGrade: exam.source_grade || exam.grade,
-      examinerName: 'Tribunal DAN',
+      examinerName,
       submittedAt: row.review?.reviewed_at || new Date().toISOString(),
       registeredBy: state.professor?.name || state.professor?.email || 'Sistema exámenes SKBC',
       token,
@@ -2767,7 +2789,7 @@ async function registerPassedTribunalStudentsInSheet(exam) {
     return;
   }
 
-  notify('Aprobados del tribunal enviados a Google Sheets. Revisa la pestaña EXAMENES.');
+  notify('Aprobados del resultado final enviados a Google Sheets. Revisa la pestaña EXAMENES.');
 }
 
 function beltOrderColorForExamGrade(grade) {
