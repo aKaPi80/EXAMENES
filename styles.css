@@ -232,6 +232,47 @@ button, input, select, textarea { font: inherit; }
 .dialog-head p { margin: 4px 0 0; color: var(--muted); }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
 
+.print-comment-editor {
+  max-width: 1120px;
+  margin: 0 auto 18px;
+  padding: 18px;
+  background: #f8fbff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.print-comment-editor h3 {
+  margin: 0 0 4px;
+  color: var(--blue-dark);
+}
+
+.print-comment-editor p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.print-comment-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.print-comment-row {
+  display: grid;
+  gap: 6px;
+}
+
+.print-comment-row span {
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.print-comment-row textarea {
+  min-height: 64px;
+  resize: vertical;
+}
+
 .belt-order-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 280px;
@@ -1892,7 +1933,7 @@ button, input, select, textarea { font: inherit; }
     background: #fff;
   }
 
-  .topbar, .tabs, .print-toolbar, #noticeOutlet {
+  .topbar, .tabs, .print-toolbar, .print-comment-editor, #noticeOutlet {
     display: none !important;
   }
 

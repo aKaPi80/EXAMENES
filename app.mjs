@@ -3218,6 +3218,46 @@ function reportTargetBeltLabel(report) {
   return beltDisplayLabel(report.gradeLabel);
 }
 
+function reportAdviceText(item) {
+  return item.notes || item.defaultAdvice || '';
+}
+
+function renderReportCommentEditor(report) {
+  if (!report.improvementItems.length) return '';
+
+  return `
+    <section class="print-comment-editor">
+      <div>
+        <h3>Comentarios del informe</h3>
+        <p>Estos textos son los que verá el alumno en “Qué reforzar”. Puedes corregirlos antes de imprimir o descargar el PDF.</p>
+      </div>
+      <div class="print-comment-list">
+        ${report.improvementItems.map((item, index) => `
+          <label class="print-comment-row">
+            <span>${escapeHtml(item.name)}${item.section ? ` · ${escapeHtml(item.section)}` : ''}</span>
+            <textarea class="report-advice-input" data-advice-index="${index}" rows="2">${escapeHtml(reportAdviceText(item))}</textarea>
+          </label>
+        `).join('')}
+      </div>
+    </section>
+  `;
+}
+
+function bindReportCommentEditor(report) {
+  $$('.report-advice-input').forEach((textarea) => {
+    textarea.addEventListener('input', () => {
+      const index = Number(textarea.dataset.adviceIndex);
+      const item = report.improvementItems[index];
+      if (!item) return;
+
+      item.notes = textarea.value.trim();
+      $$(`[data-report-advice-index="${index}"]`).forEach((node) => {
+        node.textContent = textarea.value.trim() || item.defaultAdvice || '';
+      });
+    });
+  });
+}
+
 function renderKidsPrintableEvaluation(report) {
   return `
     <article class="print-report student-report kids-student-report">
@@ -3300,7 +3340,7 @@ function renderKidsPrintableEvaluation(report) {
                 <div>
                   <strong>${escapeHtml(item.name)}</strong>
                   ${item.section ? `<span>${escapeHtml(item.section)}</span>` : ''}
-                  <p>${escapeHtml(item.notes || item.defaultAdvice)}</p>
+                  <p data-report-advice-index="${index}">${escapeHtml(reportAdviceText(item))}</p>
                 </div>
               </div>
             `).join('')}
@@ -3352,6 +3392,7 @@ function renderPrintableEvaluation(evaluationId) {
         <button class="btn btn-primary" id="downloadPdf">Descargar PDF</button>
       </div>
     </div>
+    ${renderReportCommentEditor(report)}
     ${isKidsReport(report) ? renderKidsPrintableEvaluation(report) : `
     <article class="print-report student-report adult-student-report">
       <header class="student-report-head">
@@ -3405,14 +3446,14 @@ function renderPrintableEvaluation(evaluationId) {
             </tr>
           </thead>
           <tbody>
-            ${report.improvementItems.map((item) => `
+            ${report.improvementItems.map((item, index) => `
               <tr>
                 <td><span class="focus-badge ${escapeHtml(item.levelClass)}">${escapeHtml(item.levelLabel)}</span></td>
                 <td>
                   <strong>${escapeHtml(item.name)}</strong>
                   ${item.section ? `<small>${escapeHtml(item.section)}</small>` : ''}
                 </td>
-                <td>${escapeHtml(item.notes || item.defaultAdvice)}</td>
+                <td data-report-advice-index="${index}">${escapeHtml(reportAdviceText(item))}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -3436,6 +3477,7 @@ function renderPrintableEvaluation(evaluationId) {
   $('#backToDetails').addEventListener('click', renderExamDetails);
   $('#printReport').addEventListener('click', () => window.print());
   $('#downloadPdf').addEventListener('click', () => downloadEvaluationPdf(report));
+  bindReportCommentEditor(report);
 }
 
 function formatDate(value) {
