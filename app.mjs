@@ -25,6 +25,7 @@
 
 const app = document.getElementById('app');
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const DEFAULT_CLUB_LOGO_URL = './skbc-logo.png';
 
 const state = {
   user: null,
@@ -3113,7 +3114,7 @@ function renderPrintableEvaluation(evaluationId) {
     submittedAt: evaluation.submitted_at || evaluation.created_at || new Date().toISOString(),
   });
   report.programType = exam.program_type || 'adultos';
-  report.logoUrl = state.professor.logo_url || '';
+  report.logoUrl = state.professor.logo_url || DEFAULT_CLUB_LOGO_URL;
   report.improvementItems = buildStudentImprovementItems(report.techniqueEvaluations);
   report.strengthItems = buildStudentStrengthItems(report.techniqueEvaluations);
 
@@ -3213,6 +3214,40 @@ function formatDate(value) {
   return new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 }
 
+function imageUrlToDataUrl(url) {
+  return new Promise((resolve) => {
+    if (!url) {
+      resolve('');
+      return;
+    }
+    if (String(url).startsWith('data:image/')) {
+      resolve(url);
+      return;
+    }
+
+    const image = new Image();
+    image.crossOrigin = 'anonymous';
+    image.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = image.naturalWidth;
+        canvas.height = image.naturalHeight;
+        const context = canvas.getContext('2d');
+        context.drawImage(image, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } catch (error) {
+        resolve('');
+      }
+    };
+    image.onerror = () => resolve('');
+    image.src = url;
+  });
+}
+
+function pdfImageFormat(dataUrl) {
+  return String(dataUrl).includes('image/jpeg') || String(dataUrl).includes('image/jpg') ? 'JPEG' : 'PNG';
+}
+
 function safeFileName(value) {
   return String(value || 'evaluacion')
     .normalize('NFD')
@@ -3310,9 +3345,9 @@ function downloadStudyExamPdf(report) {
   doc.save(`${safeFileName(report.examTitle)}-temario.pdf`);
 }
 
-function downloadEvaluationPdf(report) {
+async function downloadEvaluationPdf(report) {
   if (isKidsReport(report)) {
-    downloadKidsEvaluationPdf(report);
+    await downloadKidsEvaluationPdf(report);
     return;
   }
 
@@ -3328,6 +3363,7 @@ function downloadEvaluationPdf(report) {
   const pageHeight = doc.internal.pageSize.getHeight();
   let y = 34;
   const improvementItems = report.improvementItems || buildStudentImprovementItems(report.techniqueEvaluations);
+  const logoDataUrl = await imageUrlToDataUrl(report.logoUrl);
 
   const addText = (text, x, yy, options = {}) => {
     doc.setFont('helvetica', options.bold ? 'bold' : 'normal');
@@ -3350,10 +3386,9 @@ function downloadEvaluationPdf(report) {
 
   doc.setFillColor(248, 251, 253);
   doc.roundedRect(margin, y, pageWidth - margin * 2, 82, 8, 8, 'F');
-  if (report.logoUrl) {
+  if (logoDataUrl) {
     try {
-      const logoFormat = String(report.logoUrl).includes('image/jpeg') || String(report.logoUrl).includes('image/jpg') ? 'JPEG' : 'PNG';
-      doc.addImage(report.logoUrl, logoFormat, margin + 14, y + 14, 46, 46);
+      doc.addImage(logoDataUrl, pdfImageFormat(logoDataUrl), margin + 14, y + 14, 46, 46);
     } catch (error) {
       addText('SKBC', margin + 22, y + 40, { size: 12, bold: true, color: [18, 79, 141] });
     }
@@ -3443,7 +3478,7 @@ function downloadEvaluationPdf(report) {
   doc.save(`${safeFileName(report.studentName)}-${safeFileName(report.examTitle)}.pdf`);
 }
 
-function downloadKidsEvaluationPdf(report) {
+async function downloadKidsEvaluationPdf(report) {
   const jsPdf = window.jspdf?.jsPDF;
   if (!jsPdf) {
     showErrors('No se pudo cargar el generador de PDF. Usa el botón Imprimir y elige Guardar como PDF.');
@@ -3457,6 +3492,7 @@ function downloadKidsEvaluationPdf(report) {
   const contentWidth = pageWidth - margin * 2;
   const improvementItems = report.improvementItems || buildStudentImprovementItems(report.techniqueEvaluations);
   const strengthItems = report.strengthItems || buildStudentStrengthItems(report.techniqueEvaluations);
+  const logoDataUrl = await imageUrlToDataUrl(report.logoUrl);
   let y = margin;
 
   const addText = (text, x, yy, options = {}) => {
@@ -3477,10 +3513,9 @@ function downloadKidsEvaluationPdf(report) {
   doc.setFillColor(25, 118, 210);
   doc.rect(margin, y, 8, 112, 'F');
 
-  if (report.logoUrl) {
+  if (logoDataUrl) {
     try {
-      const logoFormat = String(report.logoUrl).includes('image/jpeg') || String(report.logoUrl).includes('image/jpg') ? 'JPEG' : 'PNG';
-      doc.addImage(report.logoUrl, logoFormat, margin + 22, y + 20, 58, 58);
+      doc.addImage(logoDataUrl, pdfImageFormat(logoDataUrl), margin + 22, y + 20, 58, 58);
     } catch (error) {
       addText('SKBC', margin + 28, y + 53, { size: 13, bold: true, color: [18, 79, 141] });
     }
