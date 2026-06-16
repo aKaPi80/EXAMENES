@@ -2945,6 +2945,21 @@ function buildStudentImprovementItems(techniqueEvaluations) {
     .slice(0, 6);
 }
 
+function buildStudentStrengthItems(techniqueEvaluations) {
+  return (techniqueEvaluations || [])
+    .filter((item) => !item.skipped)
+    .map((item) => {
+      const score = Number(item.score ?? item.technique_score ?? item.points ?? item.value);
+      if (!Number.isFinite(score) || score < 10) return null;
+      return {
+        name: techniqueName(item),
+        section: techniqueSection(item),
+      };
+    })
+    .filter((item) => item?.name)
+    .slice(0, 5);
+}
+
 function studentReportIntro(report) {
   if (!report.improvementItems.length) {
     return 'Buen trabajo. No se han marcado prioridades concretas en esta evaluación.';
@@ -2953,6 +2968,131 @@ function studentReportIntro(report) {
     return 'Has aprobado. Estas son las prioridades principales para seguir mejorando con claridad en el próximo ciclo.';
   }
   return 'Necesitas intentarlo una vez más. Trabaja especialmente estos puntos antes de la próxima valoración.';
+}
+
+function isKidsReport(report) {
+  return report.programType === 'ninos' || report.programType === 'ninos_progresivo';
+}
+
+function kidsReportIntro(report) {
+  if (report.summary.passed && report.improvementItems.length) {
+    return 'Has conseguido tu objetivo. Ahora toca entrenar estos pequeños retos para que tu Shorinji Kempo siga creciendo.';
+  }
+  if (report.summary.passed) {
+    return 'Has hecho un gran examen. Sigue entrenando con la misma energia, respeto y atencion.';
+  }
+  return 'Esta vez necesitas practicar un poco mas. No pasa nada: ya tienes claro que retos entrenar para volver mas fuerte.';
+}
+
+function kidsReportResultText(report) {
+  return report.summary.passed ? 'OBJETIVO CONSEGUIDO' : 'A SEGUIR PRACTICANDO';
+}
+
+function renderKidsPrintableEvaluation(report) {
+  return `
+    <article class="print-report student-report kids-student-report">
+      <header class="kids-report-hero">
+        <div class="kids-report-brand">
+          <div class="kids-report-logo">
+            ${report.logoUrl ? `<img src="${escapeHtml(report.logoUrl)}" alt="Logo club" />` : 'SKBC'}
+          </div>
+          <div>
+            <p class="print-kicker">Informe de progreso infantil</p>
+            <h1>${escapeHtml(report.studentName)}</h1>
+            <h2>${escapeHtml(report.examTitle)}</h2>
+          </div>
+        </div>
+        <div class="kids-result-card ${report.summary.passed ? 'passed' : 'failed'}">
+          <span>${report.summary.passed ? 'Enhorabuena' : 'Sigue entrenando'}</span>
+          <strong>${kidsReportResultText(report)}</strong>
+        </div>
+      </header>
+
+      <section class="kids-progress-strip">
+        <div>
+          <span>Grado</span>
+          <strong>${escapeHtml(report.gradeLabel)}</strong>
+        </div>
+        <div>
+          <span>Cinturon</span>
+          <strong>${escapeHtml(report.beltColor || '-')}</strong>
+        </div>
+        <div>
+          <span>Fecha</span>
+          <strong>${escapeHtml(formatDate(report.submittedAt))}</strong>
+        </div>
+        <div>
+          <span>Resultado</span>
+          <strong>${report.summary.percentage}%</strong>
+        </div>
+      </section>
+
+      <section class="kids-message-card">
+        <div class="kids-message-icon">${report.summary.passed ? '1' : '!'}</div>
+        <div>
+          <h3>${report.summary.passed ? 'Buen trabajo' : 'Proximo intento'}</h3>
+          <p>${escapeHtml(kidsReportIntro(report))}</p>
+        </div>
+      </section>
+
+      <section class="kids-report-grid">
+        <div class="kids-panel kids-panel-strong">
+          <h3>Lo mejor de tu examen</h3>
+          ${report.strengthItems.length ? `
+            <ul>
+              ${report.strengthItems.map((item) => `
+                <li>
+                  <strong>${escapeHtml(item.name)}</strong>
+                  ${item.section ? `<span>${escapeHtml(item.section)}</span>` : ''}
+                </li>
+              `).join('')}
+            </ul>
+          ` : `
+            <p>Has completado el examen y eso ya es un paso importante. Sigue sumando buenos entrenamientos.</p>
+          `}
+        </div>
+
+        <div class="kids-panel kids-panel-goal">
+          <h3>Tu proximo reto</h3>
+          <p>${report.improvementItems.length
+            ? 'Practica estos puntos con calma. No hace falta correr: mejora un detalle cada vez.'
+            : 'Mantener la concentracion, el respeto y la energia en cada clase.'}</p>
+          <div class="kids-mini-stats">
+            <span>${report.evaluatedCount} tecnicas contadas</span>
+            <span>${report.skippedCount} omitidas</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="kids-practice-section">
+        <h3>Retos para practicar</h3>
+        ${report.improvementItems.length ? `
+          <div class="kids-practice-list">
+            ${report.improvementItems.map((item, index) => `
+              <div class="kids-practice-item ${escapeHtml(item.levelClass)}">
+                <div class="kids-practice-number">${index + 1}</div>
+                <div>
+                  <strong>${escapeHtml(item.name)}</strong>
+                  ${item.section ? `<span>${escapeHtml(item.section)}</span>` : ''}
+                  <p>${escapeHtml(item.notes || item.defaultAdvice)}</p>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        ` : `
+          <div class="kids-empty-practice">No hay retos prioritarios marcados. Repasa el temario completo y sigue entrenando igual de bien.</div>
+        `}
+      </section>
+
+      <footer class="kids-report-footer">
+        <div>
+          <strong>Mensaje del sensei</strong>
+          <span>Lo importante es mejorar un poco cada dia: atencion, respeto y ganas de aprender.</span>
+        </div>
+        <div class="student-signature">Firma profesor</div>
+      </footer>
+    </article>
+  `;
 }
 
 function renderPrintableEvaluation(evaluationId) {
@@ -2972,8 +3112,10 @@ function renderPrintableEvaluation(evaluationId) {
     adjustmentPoints: evaluationAdjustmentPoints(evaluation),
     submittedAt: evaluation.submitted_at || evaluation.created_at || new Date().toISOString(),
   });
+  report.programType = exam.program_type || 'adultos';
   report.logoUrl = state.professor.logo_url || '';
   report.improvementItems = buildStudentImprovementItems(report.techniqueEvaluations);
+  report.strengthItems = buildStudentStrengthItems(report.techniqueEvaluations);
 
   state.printReport = report;
   $('#panelContent').innerHTML = `
@@ -2984,6 +3126,7 @@ function renderPrintableEvaluation(evaluationId) {
         <button class="btn btn-primary" id="downloadPdf">Descargar PDF</button>
       </div>
     </div>
+    ${isKidsReport(report) ? renderKidsPrintableEvaluation(report) : `
     <article class="print-report student-report">
       <header class="student-report-head">
         <div class="student-report-brand">
@@ -3057,6 +3200,7 @@ function renderPrintableEvaluation(evaluationId) {
         <div class="student-signature">Firma profesor</div>
       </footer>
     </article>
+    `}
   `;
 
   $('#backToDetails').addEventListener('click', renderExamDetails);
@@ -3167,6 +3311,11 @@ function downloadStudyExamPdf(report) {
 }
 
 function downloadEvaluationPdf(report) {
+  if (isKidsReport(report)) {
+    downloadKidsEvaluationPdf(report);
+    return;
+  }
+
   const jsPdf = window.jspdf?.jsPDF;
   if (!jsPdf) {
     showErrors('No se pudo cargar el generador de PDF. Usa el botón Imprimir y elige Guardar como PDF.');
@@ -3292,6 +3441,160 @@ function downloadEvaluationPdf(report) {
   addText('Firma profesor', pageWidth - margin - 190, y + 16, { size: 8, color: [75, 85, 99] });
 
   doc.save(`${safeFileName(report.studentName)}-${safeFileName(report.examTitle)}.pdf`);
+}
+
+function downloadKidsEvaluationPdf(report) {
+  const jsPdf = window.jspdf?.jsPDF;
+  if (!jsPdf) {
+    showErrors('No se pudo cargar el generador de PDF. Usa el botón Imprimir y elige Guardar como PDF.');
+    return;
+  }
+
+  const doc = new jsPdf({ unit: 'pt', format: 'a4' });
+  const margin = 28;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const contentWidth = pageWidth - margin * 2;
+  const improvementItems = report.improvementItems || buildStudentImprovementItems(report.techniqueEvaluations);
+  const strengthItems = report.strengthItems || buildStudentStrengthItems(report.techniqueEvaluations);
+  let y = margin;
+
+  const addText = (text, x, yy, options = {}) => {
+    doc.setFont('helvetica', options.bold ? 'bold' : 'normal');
+    doc.setFontSize(options.size || 10);
+    doc.setTextColor(...(options.color || [17, 24, 39]));
+    doc.text(String(text || ''), x, yy, options);
+  };
+
+  const addWrapped = (text, x, yy, width, options = {}) => {
+    const lines = doc.splitTextToSize(String(text || ''), width);
+    addText(lines, x, yy, options);
+    return yy + (lines.length * ((options.size || 10) + 4));
+  };
+
+  doc.setFillColor(245, 250, 255);
+  doc.roundedRect(margin, y, contentWidth, 112, 10, 10, 'F');
+  doc.setFillColor(25, 118, 210);
+  doc.rect(margin, y, 8, 112, 'F');
+
+  if (report.logoUrl) {
+    try {
+      const logoFormat = String(report.logoUrl).includes('image/jpeg') || String(report.logoUrl).includes('image/jpg') ? 'JPEG' : 'PNG';
+      doc.addImage(report.logoUrl, logoFormat, margin + 22, y + 20, 58, 58);
+    } catch (error) {
+      addText('SKBC', margin + 28, y + 53, { size: 13, bold: true, color: [18, 79, 141] });
+    }
+  } else {
+    addText('SKBC', margin + 28, y + 53, { size: 13, bold: true, color: [18, 79, 141] });
+  }
+
+  addText('INFORME DE PROGRESO INFANTIL', margin + 96, y + 28, { size: 9, bold: true, color: [25, 118, 210] });
+  addWrapped(report.studentName, margin + 96, y + 55, 250, { size: 22, bold: true, color: [18, 55, 94] });
+  addWrapped(report.examTitle, margin + 96, y + 78, 275, { size: 9, color: [75, 93, 115] });
+
+  doc.setFillColor(...(report.summary.passed ? [230, 246, 228] : [255, 244, 217]));
+  doc.roundedRect(pageWidth - margin - 158, y + 28, 134, 48, 8, 8, 'F');
+  addText(report.summary.passed ? 'Enhorabuena' : 'Sigue entrenando', pageWidth - margin - 91, y + 47, {
+    size: 8,
+    bold: true,
+    color: report.summary.passed ? [47, 111, 43] : [130, 78, 0],
+    align: 'center',
+  });
+  addText(kidsReportResultText(report), pageWidth - margin - 91, y + 64, {
+    size: 8,
+    bold: true,
+    color: report.summary.passed ? [47, 111, 43] : [130, 78, 0],
+    align: 'center',
+  });
+  y += 132;
+
+  const meta = [
+    ['Grado', report.gradeLabel],
+    ['Cinturon', report.beltColor || '-'],
+    ['Fecha', formatDate(report.submittedAt)],
+    ['Resultado', `${report.summary.percentage}%`],
+  ];
+  const metaWidth = (contentWidth - 18) / 4;
+  meta.forEach(([label, value], index) => {
+    const x = margin + index * (metaWidth + 6);
+    doc.setFillColor(249, 251, 253);
+    doc.roundedRect(x, y, metaWidth, 44, 6, 6, 'F');
+    addText(label, x + 10, y + 16, { size: 8, bold: true, color: [93, 111, 131] });
+    addWrapped(value, x + 10, y + 32, metaWidth - 20, { size: 8, bold: index === 3, color: [17, 24, 39] });
+  });
+  y += 62;
+
+  doc.setFillColor(255, 252, 234);
+  doc.roundedRect(margin, y, contentWidth, 62, 8, 8, 'F');
+  doc.setFillColor(255, 193, 7);
+  doc.circle(margin + 30, y + 31, 14, 'F');
+  addText(report.summary.passed ? '1' : '!', margin + 30, y + 36, { size: 12, bold: true, color: [255, 255, 255], align: 'center' });
+  addText(report.summary.passed ? 'Buen trabajo' : 'Proximo intento', margin + 56, y + 23, { size: 13, bold: true, color: [18, 55, 94] });
+  addWrapped(kidsReportIntro({ ...report, improvementItems }), margin + 56, y + 41, contentWidth - 74, { size: 8.5, color: [75, 85, 99] });
+  y += 82;
+
+  const panelWidth = (contentWidth - 12) / 2;
+  const panelHeight = 116;
+  doc.setFillColor(241, 249, 243);
+  doc.roundedRect(margin, y, panelWidth, panelHeight, 8, 8, 'F');
+  addText('Lo mejor de tu examen', margin + 14, y + 22, { size: 12, bold: true, color: [47, 111, 43] });
+  let listY = y + 42;
+  if (strengthItems.length) {
+    strengthItems.slice(0, 4).forEach((item) => {
+      addText('-', margin + 15, listY, { size: 9, bold: true, color: [47, 111, 43] });
+      listY = addWrapped(item.name, margin + 28, listY, panelWidth - 40, { size: 8, color: [31, 41, 55] }) + 2;
+    });
+  } else {
+    addWrapped('Has completado el examen y eso ya es un paso importante. Sigue sumando buenos entrenamientos.', margin + 14, listY, panelWidth - 28, { size: 8, color: [31, 41, 55] });
+  }
+
+  doc.setFillColor(238, 246, 255);
+  doc.roundedRect(margin + panelWidth + 12, y, panelWidth, panelHeight, 8, 8, 'F');
+  addText('Tu proximo reto', margin + panelWidth + 26, y + 22, { size: 12, bold: true, color: [18, 79, 141] });
+  addWrapped(improvementItems.length
+    ? 'Practica estos puntos con calma. No hace falta correr: mejora un detalle cada vez.'
+    : 'Mantener la concentracion, el respeto y la energia en cada clase.',
+    margin + panelWidth + 26,
+    y + 44,
+    panelWidth - 28,
+    { size: 8, color: [31, 41, 55] });
+  addText(`${report.evaluatedCount} tecnicas contadas`, margin + panelWidth + 26, y + 92, { size: 7, bold: true, color: [75, 93, 115] });
+  addText(`${report.skippedCount} omitidas`, margin + panelWidth + 140, y + 92, { size: 7, bold: true, color: [75, 93, 115] });
+  y += panelHeight + 28;
+
+  addText('Retos para practicar', margin, y, { size: 15, bold: true, color: [18, 55, 94] });
+  y += 16;
+  if (improvementItems.length) {
+    improvementItems.slice(0, 6).forEach((item, index) => {
+      const advice = item.notes || item.defaultAdvice;
+      const rowHeight = Math.max(48, doc.splitTextToSize(advice, contentWidth - 92).length * 9 + 32);
+      doc.setFillColor(index % 2 ? 249 : 255, index % 2 ? 251 : 255, index % 2 ? 253 : 255);
+      doc.roundedRect(margin, y, contentWidth, rowHeight, 6, 6, 'F');
+      doc.setFillColor(item.levelClass === 'high' ? 220 : 25, item.levelClass === 'high' ? 74 : 118, item.levelClass === 'high' ? 74 : 210);
+      doc.circle(margin + 22, y + 24, 12, 'F');
+      addText(String(index + 1), margin + 22, y + 29, { size: 10, bold: true, color: [255, 255, 255], align: 'center' });
+      addWrapped(item.name, margin + 46, y + 20, contentWidth - 64, { size: 10, bold: true, color: [17, 24, 39] });
+      if (item.section) addText(item.section, margin + 46, y + 35, { size: 7, color: [93, 111, 131] });
+      addWrapped(advice, margin + 46, y + 50, contentWidth - 64, { size: 8, color: [55, 65, 81] });
+      y += rowHeight + 7;
+    });
+  } else {
+    doc.setFillColor(248, 251, 253);
+    doc.roundedRect(margin, y, contentWidth, 48, 6, 6, 'F');
+    addWrapped('No hay retos prioritarios marcados. Repasa el temario completo y sigue entrenando igual de bien.', margin + 14, y + 22, contentWidth - 28, { size: 9 });
+    y += 60;
+  }
+
+  y = Math.min(y + 8, pageHeight - 74);
+  doc.setFillColor(245, 250, 255);
+  doc.roundedRect(margin, y, contentWidth, 50, 8, 8, 'F');
+  addText('Mensaje del sensei', margin + 14, y + 19, { size: 9, bold: true, color: [18, 55, 94] });
+  addWrapped('Lo importante es mejorar un poco cada dia: atencion, respeto y ganas de aprender.', margin + 14, y + 35, contentWidth - 220, { size: 8, color: [75, 85, 99] });
+  doc.setDrawColor(17, 24, 39);
+  doc.line(pageWidth - margin - 176, y + 30, pageWidth - margin - 18, y + 30);
+  addText('Firma profesor', pageWidth - margin - 176, y + 43, { size: 7, color: [75, 85, 99] });
+
+  doc.save(`${safeFileName(report.studentName)}-${safeFileName(report.examTitle)}-infantil.pdf`);
 }
 
 async function updateExamStatus(examId, status) {
