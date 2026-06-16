@@ -298,6 +298,79 @@ button, input, select, textarea { font: inherit; }
   gap: 10px;
 }
 
+.progressive-cut-preview {
+  margin-top: 14px;
+  border: 1px solid #cfe0f2;
+  border-radius: 8px;
+  background: #f8fbfd;
+  padding: 14px;
+}
+
+.progressive-cut-preview h3 {
+  margin: 0 0 4px;
+  color: var(--blue-dark);
+}
+
+.progressive-preview-cut {
+  margin-top: 10px;
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.progressive-preview-cut.has-warning {
+  border-color: #e3a3a3;
+  background: #fffafa;
+}
+
+.progressive-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #243b53;
+  margin-bottom: 8px;
+}
+
+.progressive-preview-head span {
+  color: #5d6f83;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.progressive-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.progressive-preview-grid > div {
+  border: 1px solid #e5edf5;
+  border-radius: 7px;
+  background: #fbfdff;
+  padding: 9px;
+}
+
+.progressive-preview-grid h4 {
+  margin: 0 0 6px;
+  color: #183b61;
+  font-size: 0.9rem;
+}
+
+.progressive-preview-grid ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}
+
+.progressive-preview-empty {
+  margin: 0;
+  color: #6b7280;
+  font-style: italic;
+}
+
 .progressive-row {
   display: grid;
   grid-template-columns: 82px minmax(140px, 0.8fr) minmax(240px, 1.3fr) 90px auto;
@@ -1797,7 +1870,7 @@ button, input, select, textarea { font: inherit; }
   .dialog-head { flex-direction: column; }
   .belt-order-layout, .belt-order-row { grid-template-columns: 1fr; }
   .belt-order-summary { position: static; }
-  .progressive-tools, .progressive-row, .progressive-cut-row, .progressive-bank-toolbar, .progressive-manual-grid { grid-template-columns: 1fr; }
+  .progressive-tools, .progressive-row, .progressive-cut-row, .progressive-bank-toolbar, .progressive-manual-grid, .progressive-preview-grid { grid-template-columns: 1fr; }
   .progressive-bank-toolbar { top: -16px; }
   .tech-block-head { align-items: stretch; flex-direction: column; }
   .technique-stage { flex-direction: column; align-items: flex-start; }

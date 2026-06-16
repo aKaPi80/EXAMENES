@@ -883,6 +883,10 @@ function renderProgressiveKidsBuilder(items = []) {
       <div id="progressiveRows" class="progressive-rows">
         ${items.map((item, index) => renderProgressiveKidsRow(withProgressiveOrder(item, index))).join('')}
       </div>
+      <aside class="progressive-cut-preview" id="progressiveCutPreview">
+        <h3>Vista previa de cortes</h3>
+        <p class="helper-text">Añade alumnos y cortes para comprobar quién se sienta y quién continúa antes de crear el examen.</p>
+      </aside>
       <div class="progressive-manual-entry">
         <h3>Añadir ejercicio manual</h3>
         <div class="progressive-manual-grid">
@@ -921,7 +925,10 @@ function renderProgressiveKidsBuilder(items = []) {
     $('#progressiveSyllabusSelect').value = '';
   });
   $('#openProgressiveBank')?.addEventListener('click', () => openProgressiveSyllabusBank(syllabusItems));
-  $('#sortProgressiveRows')?.addEventListener('click', sortProgressiveRowsByOrder);
+  $('#sortProgressiveRows')?.addEventListener('click', () => {
+    sortProgressiveRowsByOrder();
+    updateProgressiveCutPreview();
+  });
   $('#addProgressiveManualItem')?.addEventListener('click', addProgressiveManualEntry);
   $('#addProgressiveCut')?.addEventListener('click', () => {
     const cutBelt = $('#progressiveCutSelect')?.value || 'Blanco (Minarai)';
@@ -929,6 +936,8 @@ function renderProgressiveKidsBuilder(items = []) {
   });
   bindProgressiveKidsRows();
   updateProgressiveManualNextOrder();
+  bindProgressiveCutPreviewInputs();
+  updateProgressiveCutPreview();
 }
 
 function withProgressiveOrder(item, index) {
@@ -1091,6 +1100,134 @@ function progressiveCutItem(cutBelt, order = nextProgressiveOrder()) {
   };
 }
 
+function normalizeBeltKey(value) {
+  const simple = String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s*-\s*/g, ' ')
+    .replace(/[()]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!simple) return '';
+  if (simple.includes('blanco') && simple.includes('amarillo')) return 'blanco-amarillo';
+  if (simple.includes('amarillo') && simple.includes('naranja')) return 'amarillo-naranja';
+  if (simple.includes('naranja') && simple.includes('verde')) return 'naranja-verde';
+  if (simple.includes('verde') && simple.includes('azul')) return 'verde-azul';
+  if (simple.includes('azul') && simple.includes('marron')) return 'azul-marron';
+  if (simple.includes('blanco') || simple.includes('minarai')) return 'blanco';
+  if (simple.includes('amarillo') || simple.includes('5 kyu') || simple.includes('5kyu')) return 'amarillo';
+  if (simple.includes('naranja') || simple.includes('4 kyu') || simple.includes('4kyu')) return 'naranja';
+  if (simple.includes('verde') || simple.includes('3 kyu') || simple.includes('3kyu')) return 'verde';
+  if (simple.includes('azul') || simple.includes('2 kyu') || simple.includes('2kyu')) return 'azul';
+  if (simple.includes('marron') || simple.includes('1 kyu') || simple.includes('1kyu')) return 'marron';
+  if (simple.includes('negro') || simple.includes('dan')) return 'negro';
+  return simple;
+}
+
+function progressiveDraftStudents() {
+  return $$('.student-row').map((row, index) => ({
+    id: `draft-${index}`,
+    student_name: $('.student-name', row)?.value.trim() || `Alumno ${index + 1}`,
+    student_belt_color: $('.student-belt', row)?.value || '',
+    order_number: Number($('.student-order', row)?.value || index + 1),
+  }))
+    .filter((student) => student.student_name)
+    .sort((a, b) => Number(a.order_number || 0) - Number(b.order_number || 0));
+}
+
+function studentPreviewLine(student) {
+  return `${student.student_name} · ${student.student_belt_color || 'sin cinturón'}`;
+}
+
+function renderPreviewStudentList(students, emptyText) {
+  if (!students.length) return `<p class="progressive-preview-empty">${escapeHtml(emptyText)}</p>`;
+  return `
+    <ul>
+      ${students.map((student) => `<li>${escapeHtml(studentPreviewLine(student))}</li>`).join('')}
+    </ul>
+  `;
+}
+
+function buildProgressiveCutPreview() {
+  const students = progressiveDraftStudents();
+  const techniques = collectProgressiveKidsTechniques();
+  const cuts = techniques.filter((item) => item.type === 'cut');
+  let activeStudents = students.slice();
+
+  return cuts.map((cut) => {
+    const cutKey = normalizeBeltKey(cut.cut_belt);
+    const seated = activeStudents.filter((student) => normalizeBeltKey(student.student_belt_color) === cutKey);
+    const continuing = activeStudents.filter((student) => normalizeBeltKey(student.student_belt_color) !== cutKey);
+    const result = {
+      cut,
+      seated,
+      continuing,
+      warnings: [],
+    };
+
+    if (!seated.length) {
+      result.warnings.push('Este corte no sienta a ningún alumno activo. Revisa el cinturón elegido o la posición del corte.');
+    }
+    if (!continuing.length) {
+      result.warnings.push('Después de este corte no queda ningún alumno activo para las siguientes técnicas.');
+    }
+
+    activeStudents = continuing;
+    return result;
+  });
+}
+
+function updateProgressiveCutPreview() {
+  const preview = $('#progressiveCutPreview');
+  if (!preview) return;
+
+  const students = progressiveDraftStudents();
+  const previewRows = buildProgressiveCutPreview();
+  const techniques = collectProgressiveKidsTechniques();
+  const evaluableAfterLastCut = (() => {
+    const lastCutIndex = techniques.map((item) => item.type).lastIndexOf('cut');
+    return lastCutIndex >= 0 ? techniques.slice(lastCutIndex + 1).some((item) => item.type !== 'cut') : true;
+  })();
+
+  preview.innerHTML = `
+    <h3>Vista previa de cortes</h3>
+    <p class="helper-text">Comprueba aquí el efecto real de cada corte antes de crear el examen.</p>
+    ${!students.length ? '<div class="notice">Añade o carga alumnos para ver quién se sienta y quién continúa.</div>' : ''}
+    ${students.length && !previewRows.length ? '<div class="notice">Todavía no hay cortes. Si todos los alumnos no deben llegar hasta el final, añade cortes en el recorrido.</div>' : ''}
+    ${previewRows.map((row, index) => `
+      <section class="progressive-preview-cut ${row.warnings.length ? 'has-warning' : ''}">
+        <div class="progressive-preview-head">
+          <strong>Corte ${index + 1}: se sientan ${escapeHtml(row.cut.cut_belt)}</strong>
+          <span>Orden ${escapeHtml(row.cut.order || index + 1)}</span>
+        </div>
+        <div class="progressive-preview-grid">
+          <div>
+            <h4>Se sientan ahora</h4>
+            ${renderPreviewStudentList(row.seated, 'Ningún alumno se sienta en este corte.')}
+          </div>
+          <div>
+            <h4>Continúan después</h4>
+            ${renderPreviewStudentList(row.continuing, 'No queda ningún alumno activo después de este corte.')}
+          </div>
+        </div>
+        ${row.warnings.length ? `<div class="notice error">${row.warnings.map(escapeHtml).join('<br />')}</div>` : ''}
+      </section>
+    `).join('')}
+    ${previewRows.length && !evaluableAfterLastCut ? '<div class="notice error">El recorrido termina justo después de un corte. Si quieres evaluar algo más, añade técnicas después del último corte.</div>' : ''}
+  `;
+}
+
+function bindProgressiveCutPreviewInputs() {
+  $$('.student-row input, .student-row select').forEach((input) => {
+    input.removeEventListener('input', updateProgressiveCutPreview);
+    input.removeEventListener('change', updateProgressiveCutPreview);
+    input.addEventListener('input', updateProgressiveCutPreview);
+    input.addEventListener('change', updateProgressiveCutPreview);
+  });
+}
+
 function renderProgressiveKidsRow(item = {}) {
   const rowId = nextTechniqueRowId();
   if (item.type === 'cut') {
@@ -1153,6 +1290,7 @@ function addProgressiveKidsRow(item) {
   applyProgressiveInsertionOrder(row);
   bindProgressiveKidsRows();
   updateProgressiveManualNextOrder();
+  updateProgressiveCutPreview();
 }
 
 function bindProgressiveKidsRows() {
@@ -1160,10 +1298,17 @@ function bindProgressiveKidsRows() {
     button.onclick = () => {
       button.closest('[data-progressive-row]')?.remove();
       updateProgressiveManualNextOrder();
+      updateProgressiveCutPreview();
     };
   });
   $$('[data-progressive-order]').forEach((input) => {
-    input.onchange = () => applyProgressiveInsertionOrder(input.closest('[data-progressive-row]'));
+    input.onchange = () => {
+      applyProgressiveInsertionOrder(input.closest('[data-progressive-row]'));
+      updateProgressiveCutPreview();
+    };
+  });
+  $$('[data-progressive-cut-belt]').forEach((select) => {
+    select.onchange = updateProgressiveCutPreview;
   });
 }
 
@@ -1581,6 +1726,10 @@ function addStudentRow(student = {}) {
     </div>
   `);
   bindRemoveButtons();
+  if (isProgressiveKidsProgram()) {
+    bindProgressiveCutPreviewInputs();
+    updateProgressiveCutPreview();
+  }
 }
 
 function studentBeltOptions(selected = '') {
@@ -1876,7 +2025,13 @@ function addExaminerRow(examiner = {}) {
 
 function bindRemoveButtons() {
   $$('[data-remove-row]').forEach((button) => {
-    button.onclick = () => button.closest('.row-card').remove();
+    button.onclick = () => {
+      button.closest('.row-card').remove();
+      if (isProgressiveKidsProgram()) {
+        bindProgressiveCutPreviewInputs();
+        updateProgressiveCutPreview();
+      }
+    };
   });
 }
 
@@ -3882,9 +4037,7 @@ function normalizeBeltText(value) {
 }
 
 function beltMatchesCut(studentBelt, cutBelt) {
-  const student = normalizeBeltText(studentBelt);
-  const cut = normalizeBeltText(cutBelt);
-  return student === cut || student.includes(cut) || cut.includes(student);
+  return normalizeBeltKey(studentBelt) === normalizeBeltKey(cutBelt);
 }
 
 function studentCutIndex(student, techniques) {
