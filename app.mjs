@@ -3011,12 +3011,12 @@ function renderKidsPrintableEvaluation(report) {
 
       <section class="kids-progress-strip">
         <div>
-          <span>Grado</span>
-          <strong>${escapeHtml(report.gradeLabel)}</strong>
+          <span>Cinturón actual</span>
+          <strong>${escapeHtml(report.beltColor || '-')}</strong>
         </div>
         <div>
-          <span>Cinturon</span>
-          <strong>${escapeHtml(report.beltColor || '-')}</strong>
+          <span>Cinturón objetivo</span>
+          <strong>${escapeHtml(report.gradeLabel)}</strong>
         </div>
         <div>
           <span>Fecha</span>
@@ -3128,14 +3128,14 @@ function renderPrintableEvaluation(evaluationId) {
       </div>
     </div>
     ${isKidsReport(report) ? renderKidsPrintableEvaluation(report) : `
-    <article class="print-report student-report">
+    <article class="print-report student-report adult-student-report">
       <header class="student-report-head">
         <div class="student-report-brand">
           <div class="student-report-logo">
             ${report.logoUrl ? `<img src="${escapeHtml(report.logoUrl)}" alt="Logo club" />` : 'SKBC'}
           </div>
           <div>
-            <p class="print-kicker">Informe del alumno</p>
+            <p class="print-kicker">Informe oficial de evaluación</p>
             <h1>${escapeHtml(report.clubName || 'Club SKBC')}</h1>
             <h2>${escapeHtml(report.examTitle)}</h2>
           </div>
@@ -3144,13 +3144,17 @@ function renderPrintableEvaluation(evaluationId) {
           ${report.summary.passed ? 'APROBADO' : 'NECESITA INTENTARLO UNA VEZ MÁS'}
         </div>
       </header>
-      <section class="student-summary-band">
+      <section class="student-summary-band adult-summary-band">
         <div>
           <span>Alumno</span>
           <strong>${escapeHtml(report.studentName)}</strong>
         </div>
         <div>
-          <span>Grado</span>
+          <span>Cinturón actual</span>
+          <strong>${escapeHtml(report.beltColor || '-')}</strong>
+        </div>
+        <div>
+          <span>Cinturón objetivo</span>
           <strong>${escapeHtml(report.gradeLabel)}</strong>
         </div>
         <div>
@@ -3418,18 +3422,19 @@ async function downloadEvaluationPdf(report) {
 
   const meta = [
     ['Alumno', report.studentName],
-    ['Grado', report.gradeLabel],
+    ['Cinturón actual', report.beltColor || '-'],
+    ['Cinturón objetivo', report.gradeLabel],
     ['Fecha', formatDate(report.submittedAt)],
     ['Resultado final', `${report.summary.percentage}%`],
   ];
 
   meta.forEach(([label, value], index) => {
-    const boxWidth = (pageWidth - margin * 2 - 18) / 4;
-    const x = margin + index * (boxWidth + 8);
+    const boxWidth = (pageWidth - margin * 2 - 24) / 5;
+    const x = margin + index * (boxWidth + 6);
     doc.setFillColor(248, 251, 253);
     doc.roundedRect(x, y, boxWidth, 42, 5, 5, 'F');
-    addText(label, x + 9, y + 15, { size: 8, bold: true, color: [93, 111, 131] });
-    addWrapped(value, x + 9, y + 31, boxWidth - 18, { size: 8, bold: index === 0 });
+    addText(label, x + 8, y + 15, { size: 7, bold: true, color: [93, 111, 131] });
+    addWrapped(value, x + 8, y + 31, boxWidth - 16, { size: 7.2, bold: index === 0 });
   });
   y += 56;
 
@@ -3544,8 +3549,8 @@ async function downloadKidsEvaluationPdf(report) {
   y += 132;
 
   const meta = [
-    ['Grado', report.gradeLabel],
-    ['Cinturon', report.beltColor || '-'],
+    ['Cinturón actual', report.beltColor || '-'],
+    ['Cinturón objetivo', report.gradeLabel],
     ['Fecha', formatDate(report.submittedAt)],
     ['Resultado', `${report.summary.percentage}%`],
   ];
