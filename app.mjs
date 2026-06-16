@@ -3106,14 +3106,10 @@ function renderKidsPrintableEvaluation(report) {
         </div>
 
         <div class="kids-panel kids-panel-goal">
-          <h3>Qué practicar ahora</h3>
+          <h3>Recomendamos reforzar</h3>
           <p>${report.improvementItems.length
-            ? 'Practica estos puntos con calma. No hace falta correr: mejora un detalle cada vez.'
-            : 'Mantener la concentracion, el respeto y la energia en cada clase.'}</p>
-          <div class="kids-mini-stats">
-            <span>${report.evaluatedCount} tecnicas contadas</span>
-            <span>${report.skippedCount} omitidas</span>
-          </div>
+            ? 'Los apartados que mostramos a continuación son los que han tenido alguna incidencia en el examen.'
+            : 'No se han marcado incidencias concretas. Mantén la concentración, el respeto y la energía en cada clase.'}</p>
         </div>
       </section>
 
@@ -3642,16 +3638,14 @@ async function downloadKidsEvaluationPdf(report) {
 
   doc.setFillColor(238, 246, 255);
   doc.roundedRect(margin + panelWidth + 12, y, panelWidth, panelHeight, 8, 8, 'F');
-  addText('Qué practicar ahora', margin + panelWidth + 26, y + 22, { size: 12, bold: true, color: [18, 79, 141] });
+  addText('Recomendamos reforzar', margin + panelWidth + 26, y + 22, { size: 12, bold: true, color: [18, 79, 141] });
   addWrapped(improvementItems.length
-    ? 'Practica estos puntos con calma. No hace falta correr: mejora un detalle cada vez.'
-    : 'Mantener la concentracion, el respeto y la energia en cada clase.',
+    ? 'Los apartados que mostramos a continuación son los que han tenido alguna incidencia en el examen.'
+    : 'No se han marcado incidencias concretas. Mantén la concentración, el respeto y la energía en cada clase.',
     margin + panelWidth + 26,
     y + 44,
     panelWidth - 28,
     { size: 8, color: [31, 41, 55] });
-  addText(`${report.evaluatedCount} tecnicas contadas`, margin + panelWidth + 26, y + 92, { size: 7, bold: true, color: [75, 93, 115] });
-  addText(`${report.skippedCount} omitidas`, margin + panelWidth + 140, y + 92, { size: 7, bold: true, color: [75, 93, 115] });
   y += panelHeight + 28;
 
   addText('Retos para practicar', margin, y, { size: 15, bold: true, color: [18, 55, 94] });
