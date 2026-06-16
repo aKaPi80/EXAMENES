@@ -2989,6 +2989,58 @@ function kidsReportResultText(report) {
   return report.summary.passed ? 'OBJETIVO CONSEGUIDO' : 'A SEGUIR PRACTICANDO';
 }
 
+function beltDisplayLabel(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '-';
+
+  const normalized = raw
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/\s*\/\s*/g, ' ')
+    .replace(/\s*-\s*/g, '-')
+    .replace(/\s+/g, ' ');
+
+  const labels = {
+    MINARAI: 'Blanco',
+    BLANCO: 'Blanco',
+    'BLANCO-AMARILLO': 'Blanco-Amarillo',
+    AMARILLO: '5 KYU (Amarillo)',
+    '5 KYU': '5 KYU (Amarillo)',
+    'AMARILLO-NARANJA': 'Amarillo-Naranja',
+    NARANJA: '4 KYU (Naranja)',
+    '4 KYU': '4 KYU (Naranja)',
+    'NARANJA-VERDE': 'Naranja-Verde',
+    VERDE: '3 KYU (Verde)',
+    '3 KYU': '3 KYU (Verde)',
+    'VERDE-AZUL': 'Verde-Azul',
+    AZUL: '2 KYU (Azul)',
+    '2 KYU': '2 KYU (Azul)',
+    'AZUL-MARRON': 'Azul-Marrón',
+    MARRON: '1 KYU (Marrón)',
+    '1 KYU': '1 KYU (Marrón)',
+    NEGRO: 'Negro',
+    '1 DAN': '1 DAN (Negro)',
+    '2 DAN': '2 DAN (Negro)',
+    '3 DAN': '3 DAN (Negro)',
+    '4 DAN': '4 DAN (Negro)',
+  };
+
+  return labels[normalized] || raw;
+}
+
+function reportCurrentBeltLabel(report) {
+  const fallback = isKidsReport(report) ? childrenCurrentGrades[report.grade] : '';
+  return beltDisplayLabel(report.beltColor || fallback);
+}
+
+function reportTargetBeltLabel(report) {
+  if (isKidsReport(report)) {
+    return beltDisplayLabel(report.gradeLabel);
+  }
+  return beltDisplayLabel(report.gradeLabel);
+}
+
 function renderKidsPrintableEvaluation(report) {
   return `
     <article class="print-report student-report kids-student-report">
@@ -3012,11 +3064,11 @@ function renderKidsPrintableEvaluation(report) {
       <section class="kids-progress-strip">
         <div>
           <span>Cinturón actual</span>
-          <strong>${escapeHtml(report.beltColor || '-')}</strong>
+          <strong>${escapeHtml(reportCurrentBeltLabel(report))}</strong>
         </div>
         <div>
           <span>Cinturón objetivo</span>
-          <strong>${escapeHtml(report.gradeLabel)}</strong>
+          <strong>${escapeHtml(reportTargetBeltLabel(report))}</strong>
         </div>
         <div>
           <span>Fecha</span>
@@ -3054,7 +3106,7 @@ function renderKidsPrintableEvaluation(report) {
         </div>
 
         <div class="kids-panel kids-panel-goal">
-          <h3>Tu proximo reto</h3>
+          <h3>Qué practicar ahora</h3>
           <p>${report.improvementItems.length
             ? 'Practica estos puntos con calma. No hace falta correr: mejora un detalle cada vez.'
             : 'Mantener la concentracion, el respeto y la energia en cada clase.'}</p>
@@ -3151,11 +3203,11 @@ function renderPrintableEvaluation(evaluationId) {
         </div>
         <div>
           <span>Cinturón actual</span>
-          <strong>${escapeHtml(report.beltColor || '-')}</strong>
+          <strong>${escapeHtml(reportCurrentBeltLabel(report))}</strong>
         </div>
         <div>
           <span>Cinturón objetivo</span>
-          <strong>${escapeHtml(report.gradeLabel)}</strong>
+          <strong>${escapeHtml(reportTargetBeltLabel(report))}</strong>
         </div>
         <div>
           <span>Fecha</span>
@@ -3422,8 +3474,8 @@ async function downloadEvaluationPdf(report) {
 
   const meta = [
     ['Alumno', report.studentName],
-    ['Cinturón actual', report.beltColor || '-'],
-    ['Cinturón objetivo', report.gradeLabel],
+    ['Cinturón actual', reportCurrentBeltLabel(report)],
+    ['Cinturón objetivo', reportTargetBeltLabel(report)],
     ['Fecha', formatDate(report.submittedAt)],
     ['Resultado final', `${report.summary.percentage}%`],
   ];
@@ -3549,8 +3601,8 @@ async function downloadKidsEvaluationPdf(report) {
   y += 132;
 
   const meta = [
-    ['Cinturón actual', report.beltColor || '-'],
-    ['Cinturón objetivo', report.gradeLabel],
+    ['Cinturón actual', reportCurrentBeltLabel(report)],
+    ['Cinturón objetivo', reportTargetBeltLabel(report)],
     ['Fecha', formatDate(report.submittedAt)],
     ['Resultado', `${report.summary.percentage}%`],
   ];
@@ -3590,7 +3642,7 @@ async function downloadKidsEvaluationPdf(report) {
 
   doc.setFillColor(238, 246, 255);
   doc.roundedRect(margin + panelWidth + 12, y, panelWidth, panelHeight, 8, 8, 'F');
-  addText('Tu proximo reto', margin + panelWidth + 26, y + 22, { size: 12, bold: true, color: [18, 79, 141] });
+  addText('Qué practicar ahora', margin + panelWidth + 26, y + 22, { size: 12, bold: true, color: [18, 79, 141] });
   addWrapped(improvementItems.length
     ? 'Practica estos puntos con calma. No hace falta correr: mejora un detalle cada vez.'
     : 'Mantener la concentracion, el respeto y la energia en cada clase.',
