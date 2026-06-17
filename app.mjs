@@ -746,6 +746,33 @@ function isTribunalResultProgram(programType = selectedProgramType()) {
   return isDanTribunalProgram(programType) || isKidsTribunalProgram(programType);
 }
 
+function targetGradeForProgressiveStudent(student, exam) {
+  if (!isProgressiveKidsProgram(exam?.program_type)) return exam?.grade || '';
+
+  const studentBeltKey = normalizeBeltKey(student?.student_belt_color || '');
+  const match = Object.entries(childrenCurrentGrades).find(([, currentGrade]) => normalizeBeltKey(currentGrade) === studentBeltKey);
+  return match?.[0] || exam?.grade || '';
+}
+
+function sourceGradeForSheetRegistration(targetGrade, exam) {
+  if (isProgressiveKidsProgram(exam?.program_type)) {
+    return sourceGradeForExamGrade(targetGrade, 'ninos');
+  }
+  return exam?.source_grade || sourceGradeForExamGrade(targetGrade, exam?.program_type || 'adultos') || targetGrade;
+}
+
+function examinerNamesForTribunalRow(row, exam) {
+  const names = row.examinerResults
+    .map((item) => item.examinerName)
+    .filter(Boolean);
+
+  if (!names.length) {
+    names.push(...(exam.links || []).map((link) => link.examiners?.name || '').filter(Boolean));
+  }
+
+  return [...new Set(names)].join(' - ') || (isDanTribunalProgram(exam?.program_type) ? 'Tribunal DAN' : 'Tribunal infantil');
+}
+
 function selectedSourceGrade() {
   return sourceGradeForExamGrade($('#examGrade')?.value || '', selectedProgramType());
 }
@@ -2757,15 +2784,17 @@ async function registerPassedTribunalStudentsInSheet(exam) {
   }
 
   const failed = [];
-  const examinerName = isDanTribunalProgram(exam.program_type) ? 'Tribunal DAN' : 'Tribunal infantil';
   for (const row of passedRows) {
+    const registrationGrade = targetGradeForProgressiveStudent(row.student, exam);
+    const registrationSourceGrade = sourceGradeForSheetRegistration(registrationGrade, exam);
+    const examinerName = examinerNamesForTribunalRow(row, exam);
     const payload = buildExamSheetPayload({
       studentName: row.student.student_name || '',
       studentRef: row.student.student_ref || '',
       studentSourceId: row.student.student_source_id || '',
       programType: exam.program_type || 'adultos',
-      grade: exam.grade,
-      sourceGrade: exam.source_grade || exam.grade,
+      grade: registrationGrade,
+      sourceGrade: registrationSourceGrade,
       examinerName,
       submittedAt: row.review?.reviewed_at || new Date().toISOString(),
       registeredBy: state.professor?.name || state.professor?.email || 'Sistema exámenes SKBC',
