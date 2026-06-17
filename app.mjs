@@ -3575,8 +3575,36 @@ function imageUrlToDataUrl(url) {
   });
 }
 
+function dataUrlImageSize(dataUrl) {
+  return new Promise((resolve) => {
+    if (!dataUrl) {
+      resolve(null);
+      return;
+    }
+    const image = new Image();
+    image.onload = () => resolve({ width: image.naturalWidth || image.width, height: image.naturalHeight || image.height });
+    image.onerror = () => resolve(null);
+    image.src = dataUrl;
+  });
+}
+
 function pdfImageFormat(dataUrl) {
   return String(dataUrl).includes('image/jpeg') || String(dataUrl).includes('image/jpg') ? 'JPEG' : 'PNG';
+}
+
+function fitImageBox(imageSize, boxWidth, boxHeight) {
+  if (!imageSize?.width || !imageSize?.height) {
+    return { width: boxWidth, height: boxHeight, x: 0, y: 0 };
+  }
+  const ratio = Math.min(boxWidth / imageSize.width, boxHeight / imageSize.height);
+  const width = imageSize.width * ratio;
+  const height = imageSize.height * ratio;
+  return {
+    width,
+    height,
+    x: (boxWidth - width) / 2,
+    y: (boxHeight - height) / 2,
+  };
 }
 
 function safeFileName(value) {
@@ -3742,6 +3770,7 @@ async function downloadEvaluationPdf(report, options = {}) {
   let y = 34;
   const improvementItems = report.improvementItems || buildStudentImprovementItems(report.techniqueEvaluations);
   const logoDataUrl = await imageUrlToDataUrl(report.logoUrl);
+  const logoImageSize = await dataUrlImageSize(logoDataUrl);
 
   const addText = (text, x, yy, options = {}) => {
     doc.setFont('helvetica', options.bold ? 'bold' : 'normal');
@@ -3766,7 +3795,8 @@ async function downloadEvaluationPdf(report, options = {}) {
   doc.roundedRect(margin, y, pageWidth - margin * 2, 82, 8, 8, 'F');
   if (logoDataUrl) {
     try {
-      doc.addImage(logoDataUrl, pdfImageFormat(logoDataUrl), margin + 14, y + 14, 46, 46);
+      const logoBox = fitImageBox(logoImageSize, 46, 46);
+      doc.addImage(logoDataUrl, pdfImageFormat(logoDataUrl), margin + 14 + logoBox.x, y + 14 + logoBox.y, logoBox.width, logoBox.height);
     } catch (error) {
       addText('SKBC', margin + 22, y + 40, { size: 12, bold: true, color: [18, 79, 141] });
     }
@@ -3874,6 +3904,7 @@ async function downloadKidsEvaluationPdf(report, options = {}) {
   const improvementItems = report.improvementItems || buildStudentImprovementItems(report.techniqueEvaluations);
   const strengthItems = report.strengthItems || buildStudentStrengthItems(report.techniqueEvaluations);
   const logoDataUrl = await imageUrlToDataUrl(report.logoUrl);
+  const logoImageSize = await dataUrlImageSize(logoDataUrl);
   const reportTitle = cleanReportTitle(report.examTitle);
   let y = margin;
 
@@ -3897,7 +3928,8 @@ async function downloadKidsEvaluationPdf(report, options = {}) {
 
   if (logoDataUrl) {
     try {
-      doc.addImage(logoDataUrl, pdfImageFormat(logoDataUrl), margin + 22, y + 20, 58, 58);
+      const logoBox = fitImageBox(logoImageSize, 58, 58);
+      doc.addImage(logoDataUrl, pdfImageFormat(logoDataUrl), margin + 22 + logoBox.x, y + 20 + logoBox.y, logoBox.width, logoBox.height);
     } catch (error) {
       addText('SKBC', margin + 28, y + 53, { size: 13, bold: true, color: [18, 79, 141] });
     }
