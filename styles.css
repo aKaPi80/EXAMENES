@@ -1666,6 +1666,9 @@ button, input, select, textarea { font: inherit; }
 .kids-message-card p {
   margin-top: 3px;
   color: #4b5563;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 .kids-report-grid {
@@ -1691,7 +1694,9 @@ button, input, select, textarea { font: inherit; }
 .kids-panel p {
   margin: 0;
   color: #374151;
-  overflow-wrap: break-word;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: normal;
   line-height: 1.35;
 }
 
@@ -2145,6 +2150,14 @@ button, input, select, textarea { font: inherit; }
   .kids-panel {
     min-height: 92px;
     padding: 8px;
+    overflow: hidden;
+  }
+
+  .kids-panel p,
+  .kids-message-card p {
+    max-width: 100% !important;
+    overflow-wrap: anywhere !important;
+    white-space: normal !important;
   }
 
   .kids-panel ul {

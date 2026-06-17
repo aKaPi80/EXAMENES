@@ -3377,7 +3377,7 @@ function renderKidsPrintableEvaluation(report) {
         <div class="kids-panel kids-panel-goal">
           <h3>Recomendamos reforzar</h3>
           <p>${report.improvementItems.length
-            ? 'Los apartados que mostramos a continuación son los que han tenido alguna incidencia en el examen.'
+            ? 'Refuerza los apartados con alguna incidencia.'
             : 'No se han marcado incidencias concretas. Mantén la concentración, el respeto y la energía en cada clase.'}</p>
         </div>
       </section>
@@ -4005,7 +4005,7 @@ async function downloadKidsEvaluationPdf(report, options = {}) {
   doc.roundedRect(margin + panelWidth + 12, y, panelWidth, panelHeight, 8, 8, 'F');
   addText('Recomendamos reforzar', margin + panelWidth + 26, y + 22, { size: 12, bold: true, color: [18, 79, 141] });
   addWrapped(improvementItems.length
-    ? 'Los apartados que mostramos a continuación son los que han tenido alguna incidencia en el examen.'
+    ? 'Refuerza los apartados con alguna incidencia.'
     : 'No se han marcado incidencias concretas. Mantén la concentración, el respeto y la energía en cada clase.',
     margin + panelWidth + 26,
     y + 44,
