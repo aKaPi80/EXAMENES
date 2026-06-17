@@ -3186,13 +3186,23 @@ function kidsReportIntro(report) {
     return 'Has conseguido tu objetivo. Ahora toca entrenar estos pequeños retos para que tu Shorinji Kempo siga creciendo.';
   }
   if (report.summary.passed) {
-    return 'Has hecho un gran examen. Sigue entrenando con la misma energia, respeto y atencion.';
+    return 'Has hecho un gran examen. Sigue entrenando con la misma energía, respeto y atención.';
   }
-  return 'Esta vez necesitas practicar un poco mas. No pasa nada: ya tienes claro que retos entrenar para volver mas fuerte.';
+  return 'Esta vez necesitas practicar un poco más. Ya tienes claros los retos para volver con más seguridad.';
 }
 
 function kidsReportResultText(report) {
   return report.summary.passed ? 'OBJETIVO CONSEGUIDO' : 'A SEGUIR PRACTICANDO';
+}
+
+function cleanReportTitle(title) {
+  return String(title || '')
+    .replace(/\s*,\s*/g, ' · ')
+    .replace(/\s*-\s*,\s*/g, ' · ')
+    .replace(/\s*-\s*/g, ' ')
+    .replace(/\s*·\s*/g, ' · ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function beltDisplayLabel(value) {
@@ -3288,6 +3298,8 @@ function bindReportCommentEditor(report) {
 }
 
 function renderKidsPrintableEvaluation(report) {
+  const reportTitle = cleanReportTitle(report.examTitle);
+
   return `
     <article class="print-report student-report kids-student-report">
       <header class="kids-report-hero">
@@ -3298,7 +3310,7 @@ function renderKidsPrintableEvaluation(report) {
           <div>
             <p class="print-kicker">Informe de progreso infantil</p>
             <h1>${escapeHtml(report.studentName)}</h1>
-            <h2>${escapeHtml(report.examTitle)}</h2>
+            <h2>${escapeHtml(reportTitle)}</h2>
           </div>
         </div>
         <div class="kids-result-card ${report.summary.passed ? 'passed' : 'failed'}">
@@ -3851,6 +3863,7 @@ async function downloadKidsEvaluationPdf(report, options = {}) {
   const improvementItems = report.improvementItems || buildStudentImprovementItems(report.techniqueEvaluations);
   const strengthItems = report.strengthItems || buildStudentStrengthItems(report.techniqueEvaluations);
   const logoDataUrl = await imageUrlToDataUrl(report.logoUrl);
+  const reportTitle = cleanReportTitle(report.examTitle);
   let y = margin;
 
   const addText = (text, x, yy, options = {}) => {
@@ -3881,19 +3894,23 @@ async function downloadKidsEvaluationPdf(report, options = {}) {
     addText('SKBC', margin + 28, y + 53, { size: 13, bold: true, color: [18, 79, 141] });
   }
 
+  const resultCardWidth = 146;
+  const resultCardX = pageWidth - margin - resultCardWidth - 22;
+  const headerTextWidth = Math.max(190, resultCardX - (margin + 96) - 18);
+
   addText('INFORME DE PROGRESO INFANTIL', margin + 96, y + 28, { size: 9, bold: true, color: [25, 118, 210] });
-  addWrapped(report.studentName, margin + 96, y + 55, 250, { size: 22, bold: true, color: [18, 55, 94] });
-  addWrapped(report.examTitle, margin + 96, y + 78, 275, { size: 9, color: [75, 93, 115] });
+  addWrapped(report.studentName, margin + 96, y + 55, headerTextWidth, { size: 20, bold: true, color: [18, 55, 94] });
+  addWrapped(reportTitle, margin + 96, y + 80, headerTextWidth, { size: 8.5, color: [75, 93, 115] });
 
   doc.setFillColor(...(report.summary.passed ? [230, 246, 228] : [255, 244, 217]));
-  doc.roundedRect(pageWidth - margin - 158, y + 28, 134, 48, 8, 8, 'F');
-  addText(report.summary.passed ? 'Enhorabuena' : 'Sigue entrenando', pageWidth - margin - 91, y + 47, {
+  doc.roundedRect(resultCardX, y + 28, resultCardWidth, 48, 8, 8, 'F');
+  addText(report.summary.passed ? 'Enhorabuena' : 'Sigue entrenando', resultCardX + resultCardWidth / 2, y + 47, {
     size: 8,
     bold: true,
     color: report.summary.passed ? [47, 111, 43] : [130, 78, 0],
     align: 'center',
   });
-  addText(kidsReportResultText(report), pageWidth - margin - 91, y + 64, {
+  addText(kidsReportResultText(report), resultCardX + resultCardWidth / 2, y + 64, {
     size: 8,
     bold: true,
     color: report.summary.passed ? [47, 111, 43] : [130, 78, 0],
@@ -3922,7 +3939,7 @@ async function downloadKidsEvaluationPdf(report, options = {}) {
   doc.setFillColor(255, 193, 7);
   doc.circle(margin + 30, y + 31, 14, 'F');
   addText(report.summary.passed ? '1' : '!', margin + 30, y + 36, { size: 12, bold: true, color: [255, 255, 255], align: 'center' });
-  addText(report.summary.passed ? 'Buen trabajo' : 'Proximo intento', margin + 56, y + 23, { size: 13, bold: true, color: [18, 55, 94] });
+  addText(report.summary.passed ? 'Buen trabajo' : 'Próximo intento', margin + 56, y + 23, { size: 13, bold: true, color: [18, 55, 94] });
   addWrapped(kidsReportIntro({ ...report, improvementItems }), margin + 56, y + 41, contentWidth - 74, { size: 8.5, color: [75, 85, 99] });
   y += 82;
 
@@ -3949,8 +3966,8 @@ async function downloadKidsEvaluationPdf(report, options = {}) {
     : 'No se han marcado incidencias concretas. Mantén la concentración, el respeto y la energía en cada clase.',
     margin + panelWidth + 26,
     y + 44,
-    panelWidth - 28,
-    { size: 8, color: [31, 41, 55] });
+    panelWidth - 42,
+    { size: 7.7, color: [31, 41, 55] });
   y += panelHeight + 28;
 
   addText('Retos para practicar', margin, y, { size: 15, bold: true, color: [18, 55, 94] });
@@ -3980,12 +3997,12 @@ async function downloadKidsEvaluationPdf(report, options = {}) {
   doc.setFillColor(245, 250, 255);
   doc.roundedRect(margin, y, contentWidth, 50, 8, 8, 'F');
   addText('Mensaje del sensei', margin + 14, y + 19, { size: 9, bold: true, color: [18, 55, 94] });
-  addWrapped('Lo importante es mejorar un poco cada dia: atencion, respeto y ganas de aprender.', margin + 14, y + 35, contentWidth - 220, { size: 8, color: [75, 85, 99] });
+  addWrapped('Lo importante es mejorar un poco cada día: atención, respeto y ganas de aprender.', margin + 14, y + 35, contentWidth - 220, { size: 8, color: [75, 85, 99] });
   doc.setDrawColor(17, 24, 39);
   doc.line(pageWidth - margin - 176, y + 30, pageWidth - margin - 18, y + 30);
   addText('Firma profesor', pageWidth - margin - 176, y + 43, { size: 7, color: [75, 85, 99] });
 
-  const fileName = `${safeFileName(report.studentName)}-${safeFileName(report.examTitle)}-infantil.pdf`;
+  const fileName = `${safeFileName(report.studentName)}-${safeFileName(reportTitle)}-infantil.pdf`;
   if (options.save !== false) doc.save(fileName);
   return { doc, fileName };
 }

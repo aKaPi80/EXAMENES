@@ -1516,6 +1516,7 @@ button, input, select, textarea { font: inherit; }
   align-items: center;
   gap: 15px;
   min-width: 0;
+  flex: 1 1 auto;
 }
 
 .kids-report-logo {
@@ -1543,16 +1544,19 @@ button, input, select, textarea { font: inherit; }
   color: #183b61;
   font-size: 2rem;
   line-height: 1.05;
+  overflow-wrap: anywhere;
 }
 
 .kids-report-hero h2 {
   margin: 6px 0 0;
   color: #4b5d73;
   font-size: 1rem;
+  overflow-wrap: anywhere;
 }
 
 .kids-result-card {
   width: 188px;
+  flex: 0 0 188px;
   border-radius: 10px;
   display: grid;
   align-content: center;
@@ -1668,6 +1672,8 @@ button, input, select, textarea { font: inherit; }
   border-radius: 10px;
   padding: 13px;
   min-height: 138px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .kids-panel h3 {
@@ -1678,6 +1684,7 @@ button, input, select, textarea { font: inherit; }
 .kids-panel p {
   margin: 0;
   color: #374151;
+  overflow-wrap: break-word;
 }
 
 .kids-panel ul {
@@ -1697,6 +1704,7 @@ button, input, select, textarea { font: inherit; }
 .kids-panel li strong,
 .kids-panel li span {
   display: block;
+  overflow-wrap: break-word;
 }
 
 .kids-panel li strong {
@@ -2026,9 +2034,12 @@ button, input, select, textarea { font: inherit; }
   }
 
   .kids-student-report {
+    width: 190mm;
+    max-width: 190mm;
     min-height: auto;
     font-size: 8.2px;
     background: #ffffff;
+    overflow: hidden;
   }
 
   .kids-report-hero {
@@ -2036,6 +2047,10 @@ button, input, select, textarea { font: inherit; }
     margin-bottom: 7px;
     gap: 8px;
     border-radius: 8px;
+  }
+
+  .kids-report-brand {
+    flex: 1 1 auto;
   }
 
   .kids-report-logo {
@@ -2052,7 +2067,8 @@ button, input, select, textarea { font: inherit; }
   }
 
   .kids-result-card {
-    width: 150px;
+    width: 142px;
+    flex-basis: 142px;
     padding: 8px;
   }
 
@@ -2087,6 +2103,7 @@ button, input, select, textarea { font: inherit; }
   }
 
   .kids-report-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 7px;
     margin-bottom: 9px;
   }
