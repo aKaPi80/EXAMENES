@@ -14,10 +14,12 @@
  *************************************************/
 
 const SKBC_EXAM_REPORTS_CFG = {
+  SPREADSHEET_ID: '1GGVrz7UVNhlDu-NaE9qGs4U2bxXkh7pzXfdixTjYDrc',
   ROOT_FOLDER_NAME: 'SKBC Informes de Examenes',
   ADULTS_FOLDER_NAME: 'Adultos',
   KIDS_FOLDER_NAME: 'Ninos',
   SHEET_EXAMS: 'EXAMENES',
+  SHEET_LOG: 'LOG_INFORMES_EXAMEN',
   PROP_ROOT_FOLDER_ID: 'SKBC_EXAM_REPORTS_ROOT_FOLDER_ID',
   PROP_ADULTS_FOLDER_ID: 'SKBC_EXAM_REPORTS_ADULTS_FOLDER_ID',
   PROP_KIDS_FOLDER_ID: 'SKBC_EXAM_REPORTS_KIDS_FOLDER_ID'
@@ -26,50 +28,65 @@ const SKBC_EXAM_REPORTS_CFG = {
 function skbcGuardarInformeExamenDesdeWeb_(payload) {
   payload = payload || {};
 
-  if (typeof SKBC_API_TOKEN !== 'undefined' && payload.token !== SKBC_API_TOKEN) {
-    throw new Error('Token invalido');
+  skbcExamReportsDebugLog_('INICIO', payload, 'Llega accion guardar informe');
+
+  try {
+    if (typeof SKBC_API_TOKEN !== 'undefined' && payload.token !== SKBC_API_TOKEN) {
+      throw new Error('Token invalido');
+    }
+
+    const ss = skbcExamReportsSpreadsheet_();
+    const sh = ss.getSheetByName(SKBC_EXAM_REPORTS_CFG.SHEET_EXAMS);
+    if (!sh) throw new Error('No existe la hoja EXAMENES');
+
+    skbcExamReportsDebugLog_('SPREADSHEET_OK', payload, 'Spreadsheet abierto: ' + ss.getId());
+
+    const setup = skbcExamReportsSetup_();
+    skbcExamReportsDebugLog_('SETUP_OK', payload, JSON.stringify(setup));
+
+    const folder = skbcExamReportsFolderForProgram_(String(payload.programa || '').trim(), setup);
+    skbcExamReportsDebugLog_('FOLDER_OK', payload, 'Folder: ' + folder.getName() + ' / ' + folder.getId());
+
+    const headers = skbcExamReportsEnsureHeaders_(sh, [
+      'InformePDF',
+      'InformeCreadoEl',
+      'InformeCreadoPor',
+      'InformeTipo',
+      'InformeNombreArchivo'
+    ]);
+    skbcExamReportsDebugLog_('HEADERS_OK', payload, headers.join(' | '));
+
+    const rowNumber = skbcExamReportsFindExamRow_(sh, headers, payload);
+    if (!rowNumber) {
+      throw new Error('No se encontro la fila del examen para ' + String(payload.alumno || payload.alumnoId || '').trim());
+    }
+    skbcExamReportsDebugLog_('ROW_OK', payload, 'Fila encontrada: ' + rowNumber);
+
+    const file = skbcExamReportsCreatePdfFile_(payload, folder);
+    const fileUrl = file.getUrl();
+    skbcExamReportsDebugLog_('PDF_OK', payload, fileUrl);
+
+    const now = new Date();
+    skbcExamReportsSetByHeader_(sh, rowNumber, headers, 'InformePDF', fileUrl);
+    skbcExamReportsSetByHeader_(sh, rowNumber, headers, 'InformeCreadoEl', now);
+    skbcExamReportsSetByHeader_(sh, rowNumber, headers, 'InformeCreadoPor', String(payload.registradoPor || 'WEB EXAMEN SKBC').trim());
+    skbcExamReportsSetByHeader_(sh, rowNumber, headers, 'InformeTipo', String(payload.informeTipo || payload.programa || '').trim());
+    skbcExamReportsSetByHeader_(sh, rowNumber, headers, 'InformeNombreArchivo', file.getName());
+
+    SpreadsheetApp.flush();
+    skbcExamReportsDebugLog_('FIN_OK', payload, 'Guardado en fila ' + rowNumber);
+
+    return {
+      ok: true,
+      alumno: payload.alumno || '',
+      fila: rowNumber,
+      url: fileUrl,
+      archivo: file.getName()
+    };
+  } catch (error) {
+    skbcExamReportsDebugLog_('ERROR', payload, String(error && error.stack ? error.stack : error));
+    throw error;
   }
-
-  const ss = skbcExamReportsSpreadsheet_();
-  const sh = ss.getSheetByName(SKBC_EXAM_REPORTS_CFG.SHEET_EXAMS);
-  if (!sh) throw new Error('No existe la hoja EXAMENES');
-
-  const setup = skbcExamReportsSetup_();
-  const folder = skbcExamReportsFolderForProgram_(String(payload.programa || '').trim(), setup);
-  const file = skbcExamReportsCreatePdfFile_(payload, folder);
-  const fileUrl = file.getUrl();
-
-  const headers = skbcExamReportsEnsureHeaders_(sh, [
-    'URL_Diploma',
-    'InformePDF',
-    'InformeCreadoEl',
-    'InformeCreadoPor',
-    'InformeTipo',
-    'InformeNombreArchivo'
-  ]);
-
-  const rowNumber = skbcExamReportsFindExamRow_(sh, headers, payload);
-  if (!rowNumber) {
-    throw new Error('No se encontro la fila del examen para ' + String(payload.alumno || payload.alumnoId || '').trim());
-  }
-
-  const now = new Date();
-  skbcExamReportsSetByHeader_(sh, rowNumber, headers, 'URL_Diploma', fileUrl);
-  skbcExamReportsSetByHeader_(sh, rowNumber, headers, 'InformePDF', fileUrl);
-  skbcExamReportsSetByHeader_(sh, rowNumber, headers, 'InformeCreadoEl', now);
-  skbcExamReportsSetByHeader_(sh, rowNumber, headers, 'InformeCreadoPor', String(payload.registradoPor || 'WEB EXAMEN SKBC').trim());
-  skbcExamReportsSetByHeader_(sh, rowNumber, headers, 'InformeTipo', String(payload.informeTipo || payload.programa || '').trim());
-  skbcExamReportsSetByHeader_(sh, rowNumber, headers, 'InformeNombreArchivo', file.getName());
-
-  SpreadsheetApp.flush();
-
-  return {
-    ok: true,
-    alumno: payload.alumno || '',
-    fila: rowNumber,
-    url: fileUrl,
-    archivo: file.getName()
-  };
 }
 
 function skbcExamReportsSetup_() {
@@ -100,7 +117,6 @@ function skbcExamReportsSetup_() {
   const sh = ss.getSheetByName(SKBC_EXAM_REPORTS_CFG.SHEET_EXAMS);
   if (sh) {
     skbcExamReportsEnsureHeaders_(sh, [
-      'URL_Diploma',
       'InformePDF',
       'InformeCreadoEl',
       'InformeCreadoPor',
@@ -117,6 +133,10 @@ function skbcExamReportsSetup_() {
 }
 
 function skbcExamReportsSpreadsheet_() {
+  if (SKBC_EXAM_REPORTS_CFG.SPREADSHEET_ID) {
+    return SpreadsheetApp.openById(SKBC_EXAM_REPORTS_CFG.SPREADSHEET_ID);
+  }
+
   if (typeof SKBC_WEB_CFG !== 'undefined' && SKBC_WEB_CFG.SPREADSHEET_ID) {
     return SpreadsheetApp.openById(SKBC_WEB_CFG.SPREADSHEET_ID);
   }
@@ -127,6 +147,45 @@ function skbcExamReportsSpreadsheet_() {
   } catch (e) {}
 
   throw new Error('No se pudo abrir el spreadsheet principal.');
+}
+
+function skbcExamReportsDebugLog_(stage, payload, detail) {
+  try {
+    Logger.log('[SKBC INFORME] ' + stage + ' | ' + String(detail || ''));
+
+    const ss = skbcExamReportsSpreadsheet_();
+    let sh = ss.getSheetByName(SKBC_EXAM_REPORTS_CFG.SHEET_LOG);
+    if (!sh) {
+      sh = ss.insertSheet(SKBC_EXAM_REPORTS_CFG.SHEET_LOG);
+      sh.getRange(1, 1, 1, 10).setValues([[
+        'Timestamp',
+        'Stage',
+        'Detalle',
+        'Alumno',
+        'AlumnoId',
+        'AlumnoRef',
+        'Grado',
+        'Programa',
+        'FechaExamen',
+        'EvaluationId'
+      ]]).setFontWeight('bold');
+    }
+
+    sh.appendRow([
+      new Date(),
+      stage,
+      String(detail || '').slice(0, 45000),
+      String((payload && payload.alumno) || ''),
+      String((payload && payload.alumnoId) || ''),
+      String((payload && payload.alumnoRef) || ''),
+      String((payload && payload.grado) || ''),
+      String((payload && payload.programa) || ''),
+      String((payload && payload.fechaExamen) || ''),
+      String((payload && payload.evaluationId) || '')
+    ]);
+  } catch (logError) {
+    Logger.log('[SKBC INFORME LOG ERROR] ' + String(logError && logError.stack ? logError.stack : logError));
+  }
 }
 
 function skbcExamReportsGetOrCreateFolder_(props, propName, folderName, parentFolder) {
@@ -198,9 +257,19 @@ function skbcExamReportsEnsureHeaders_(sh, requiredHeaders) {
 
   requiredHeaders.forEach(function(header) {
     if (skbcExamReportsHeaderIndex_(headers, header) !== -1) return;
-    sh.insertColumnAfter(sh.getLastColumn());
-    sh.getRange(1, sh.getLastColumn()).setValue(header).setFontWeight('bold');
-    headers.push(header);
+
+    let lastHeaderCol = 0;
+    headers.forEach(function(existingHeader, index) {
+      if (String(existingHeader || '').trim()) lastHeaderCol = index + 1;
+    });
+
+    const nextCol = Math.max(lastHeaderCol, 1) + 1;
+    if (nextCol > sh.getMaxColumns()) {
+      sh.insertColumnAfter(sh.getMaxColumns());
+    }
+
+    sh.getRange(1, nextCol).setValue(header).setFontWeight('bold');
+    headers[nextCol - 1] = header;
   });
 
   return sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(function(value) {
@@ -303,5 +372,9 @@ function skbcExamReportsSlug_(value) {
 }
 
 function TEST_skbcExamReportsSetup_() {
+  return skbcExamReportsSetup_();
+}
+
+function SKBC_instalarInformesExamenes() {
   return skbcExamReportsSetup_();
 }
