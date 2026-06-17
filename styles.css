@@ -2172,6 +2172,7 @@ button, input, select, textarea { font: inherit; }
   .kids-panel-goal p {
     font-size: 8px !important;
     line-height: 1.32 !important;
+    max-width: 92% !important;
   }
 
   .kids-panel ul {

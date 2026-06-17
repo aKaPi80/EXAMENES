@@ -3272,6 +3272,18 @@ function reportAdviceText(item) {
   return item.notes || item.defaultAdvice || '';
 }
 
+function kidsReinforceText(hasImprovementItems) {
+  return hasImprovementItems
+    ? 'Los apartados que mostramos a continuación son los que han tenido alguna incidencia en el examen.'
+    : 'No se han marcado incidencias concretas. Mantén la concentración, el respeto y la energía en cada clase.';
+}
+
+function kidsReinforceTextHtml(hasImprovementItems) {
+  return hasImprovementItems
+    ? 'Los apartados que mostramos a continuación son los que han tenido<br />alguna incidencia en el examen.'
+    : 'No se han marcado incidencias concretas.<br />Mantén la concentración, el respeto y la energía en cada clase.';
+}
+
 function renderReportCommentEditor(report) {
   if (!report.improvementItems.length) return '';
 
@@ -3376,9 +3388,7 @@ function renderKidsPrintableEvaluation(report) {
 
         <div class="kids-panel kids-panel-goal">
           <h3>Recomendamos reforzar</h3>
-          <p>${report.improvementItems.length
-            ? 'Los apartados que mostramos a continuación son los que han tenido alguna incidencia en el examen.'
-            : 'No se han marcado incidencias concretas. Mantén la concentración, el respeto y la energía en cada clase.'}</p>
+          <p>${kidsReinforceTextHtml(report.improvementItems.length)}</p>
         </div>
       </section>
 
@@ -4004,9 +4014,7 @@ async function downloadKidsEvaluationPdf(report, options = {}) {
   doc.setFillColor(238, 246, 255);
   doc.roundedRect(margin + panelWidth + 12, y, panelWidth, panelHeight, 8, 8, 'F');
   addText('Recomendamos reforzar', margin + panelWidth + 26, y + 22, { size: 12, bold: true, color: [18, 79, 141] });
-  addWrapped(improvementItems.length
-    ? 'Los apartados que mostramos a continuación son los que han tenido alguna incidencia en el examen.'
-    : 'No se han marcado incidencias concretas. Mantén la concentración, el respeto y la energía en cada clase.',
+  addWrapped(kidsReinforceText(improvementItems.length),
     margin + panelWidth + 26,
     y + 44,
     panelWidth - 42,
