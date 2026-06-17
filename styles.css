@@ -2043,6 +2043,10 @@ button, input, select, textarea { font: inherit; }
   }
 
   .kids-report-hero {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: stretch !important;
+    justify-content: space-between !important;
     padding: 10px;
     margin-bottom: 7px;
     gap: 8px;
@@ -2050,7 +2054,9 @@ button, input, select, textarea { font: inherit; }
   }
 
   .kids-report-brand {
-    flex: 1 1 auto;
+    display: flex !important;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
   }
 
   .kids-report-logo {
@@ -2068,7 +2074,7 @@ button, input, select, textarea { font: inherit; }
 
   .kids-result-card {
     width: 142px;
-    flex-basis: 142px;
+    flex: 0 0 142px !important;
     padding: 8px;
   }
 
@@ -2077,6 +2083,8 @@ button, input, select, textarea { font: inherit; }
   }
 
   .kids-progress-strip {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
     gap: 5px;
     margin-bottom: 7px;
   }
@@ -2103,9 +2111,15 @@ button, input, select, textarea { font: inherit; }
   }
 
   .kids-report-grid {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
     gap: 7px;
     margin-bottom: 9px;
+  }
+
+  .kids-report-footer {
+    display: grid !important;
+    grid-template-columns: 1fr 170px !important;
   }
 
   .kids-panel {
