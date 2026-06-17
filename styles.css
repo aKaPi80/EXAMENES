@@ -1692,6 +1692,10 @@ button, input, select, textarea { font: inherit; }
 }
 
 .kids-panel p {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   margin: 0;
   color: #374151;
   max-width: 100%;
@@ -2155,9 +2159,19 @@ button, input, select, textarea { font: inherit; }
 
   .kids-panel p,
   .kids-message-card p {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
     max-width: 100% !important;
     overflow-wrap: anywhere !important;
+    word-break: normal !important;
     white-space: normal !important;
+  }
+
+  .kids-panel-goal p {
+    font-size: 8px !important;
+    line-height: 1.32 !important;
   }
 
   .kids-panel ul {
