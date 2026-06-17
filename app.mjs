@@ -3409,6 +3409,12 @@ function renderPrintableEvaluation(evaluationId) {
   });
   report.programType = exam.program_type || 'adultos';
   report.logoUrl = state.professor.logo_url || DEFAULT_CLUB_LOGO_URL;
+  report.examId = exam.id;
+  report.evaluationId = evaluation.id;
+  report.studentRef = evaluation.exam_students?.student_ref || '';
+  report.studentSourceId = evaluation.exam_students?.student_source_id || '';
+  report.sourceGrade = exam.source_grade || sourceGradeForExamGrade(exam.grade, exam.program_type || 'adultos') || exam.grade;
+  report.examinerName = evaluation.examiners?.name || '';
   report.improvementItems = buildStudentImprovementItems(report.techniqueEvaluations);
   report.strengthItems = buildStudentStrengthItems(report.techniqueEvaluations);
 
@@ -3417,6 +3423,7 @@ function renderPrintableEvaluation(evaluationId) {
     <div class="print-toolbar">
       <button class="btn btn-secondary" id="backToDetails">Volver a resultados</button>
       <div class="btn-row">
+        <button class="btn btn-success" id="saveReportToFicha">Guardar informe en ficha</button>
         <button class="btn btn-secondary" id="printReport">Imprimir</button>
         <button class="btn btn-primary" id="downloadPdf">Descargar PDF</button>
       </div>
@@ -3506,6 +3513,7 @@ function renderPrintableEvaluation(evaluationId) {
   $('#backToDetails').addEventListener('click', renderExamDetails);
   $('#printReport').addEventListener('click', () => window.print());
   $('#downloadPdf').addEventListener('click', () => downloadEvaluationPdf(report));
+  $('#saveReportToFicha').addEventListener('click', () => saveEvaluationReportToFicha(report));
   bindReportCommentEditor(report);
 }
 
@@ -3555,6 +3563,54 @@ function safeFileName(value) {
     .replace(/[^a-zA-Z0-9_-]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .toLowerCase();
+}
+
+async function saveEvaluationReportToFicha(report) {
+  const savedToken = localStorage.getItem('skbcSheetToken') || '';
+  const token = (prompt('Pega el token configurado en Apps Script para guardar el informe en la ficha:', savedToken) || '').trim();
+  if (!token) return;
+  localStorage.setItem('skbcSheetToken', token);
+
+  const generated = await downloadEvaluationPdf(report, { save: false });
+  if (!generated?.doc) return;
+
+  const dataUri = generated.doc.output('datauristring');
+  const pdfBase64 = String(dataUri || '').split(',')[1] || '';
+  if (!pdfBase64) {
+    showErrors('No se pudo preparar el PDF para subirlo a Drive.');
+    return;
+  }
+
+  const payload = {
+    accion: 'GUARDAR_INFORME_EXAMEN_WEB',
+    token,
+    alumno: report.studentName || '',
+    alumnoRef: report.studentRef || '',
+    alumnoId: report.studentSourceId || '',
+    programa: report.programType || 'adultos',
+    grado: gradeSheetLabel(report.grade),
+    gradoFuente: report.sourceGrade ? gradeSheetLabel(report.sourceGrade) : '',
+    examinador: report.examinerName || '',
+    fechaExamen: report.submittedAt ? new Date(report.submittedAt).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+    registradoPor: state.professor?.name || state.professor?.email || 'Sistema exámenes SKBC',
+    informeTipo: isKidsReport(report) ? 'infantil' : 'adulto',
+    informeNombreArchivo: generated.fileName,
+    informePdfBase64: pdfBase64,
+    examId: report.examId || '',
+    evaluationId: report.evaluationId || '',
+  };
+
+  try {
+    await fetch(EXAM_SHEET_WEBAPP_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload),
+    });
+    notify('Informe enviado a Apps Script. Revisa la ficha cuando se actualice la caché.');
+  } catch (error) {
+    showErrors(`No se pudo enviar el informe: ${error.message}`);
+  }
 }
 
 function downloadStudyExamPdf(report) {
@@ -3645,16 +3701,15 @@ function downloadStudyExamPdf(report) {
   doc.save(`${safeFileName(report.examTitle)}-temario.pdf`);
 }
 
-async function downloadEvaluationPdf(report) {
+async function downloadEvaluationPdf(report, options = {}) {
   if (isKidsReport(report)) {
-    await downloadKidsEvaluationPdf(report);
-    return;
+    return downloadKidsEvaluationPdf(report, options);
   }
 
   const jsPdf = window.jspdf?.jsPDF;
   if (!jsPdf) {
     showErrors('No se pudo cargar el generador de PDF. Usa el botón Imprimir y elige Guardar como PDF.');
-    return;
+    return null;
   }
 
   const doc = new jsPdf({ unit: 'pt', format: 'a4' });
@@ -3776,14 +3831,16 @@ async function downloadEvaluationPdf(report) {
   doc.line(pageWidth - margin - 190, y, pageWidth - margin, y);
   addText('Firma profesor', pageWidth - margin - 190, y + 16, { size: 8, color: [75, 85, 99] });
 
-  doc.save(`${safeFileName(report.studentName)}-${safeFileName(report.examTitle)}.pdf`);
+  const fileName = `${safeFileName(report.studentName)}-${safeFileName(report.examTitle)}.pdf`;
+  if (options.save !== false) doc.save(fileName);
+  return { doc, fileName };
 }
 
-async function downloadKidsEvaluationPdf(report) {
+async function downloadKidsEvaluationPdf(report, options = {}) {
   const jsPdf = window.jspdf?.jsPDF;
   if (!jsPdf) {
     showErrors('No se pudo cargar el generador de PDF. Usa el botón Imprimir y elige Guardar como PDF.');
-    return;
+    return null;
   }
 
   const doc = new jsPdf({ unit: 'pt', format: 'a4' });
@@ -3928,7 +3985,9 @@ async function downloadKidsEvaluationPdf(report) {
   doc.line(pageWidth - margin - 176, y + 30, pageWidth - margin - 18, y + 30);
   addText('Firma profesor', pageWidth - margin - 176, y + 43, { size: 7, color: [75, 85, 99] });
 
-  doc.save(`${safeFileName(report.studentName)}-${safeFileName(report.examTitle)}-infantil.pdf`);
+  const fileName = `${safeFileName(report.studentName)}-${safeFileName(report.examTitle)}-infantil.pdf`;
+  if (options.save !== false) doc.save(fileName);
+  return { doc, fileName };
 }
 
 async function updateExamStatus(examId, status) {
