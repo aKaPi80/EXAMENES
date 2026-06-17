@@ -3250,7 +3250,18 @@ function reportCurrentBeltLabel(report) {
   return beltDisplayLabel(report.beltColor || fallback);
 }
 
+function progressiveKidsTargetGradeForCurrentBelt(currentBelt) {
+  const currentKey = normalizeBeltKey(currentBelt);
+  if (!currentKey) return '';
+  return Object.entries(childrenCurrentGrades)
+    .find(([, gradeCurrentBelt]) => normalizeBeltKey(gradeCurrentBelt) === currentKey)?.[0] || '';
+}
+
 function reportTargetBeltLabel(report) {
+  if (report.programType === 'ninos_progresivo') {
+    const targetGrade = progressiveKidsTargetGradeForCurrentBelt(report.beltColor || childrenCurrentGrades[report.grade]);
+    return beltDisplayLabel(targetGrade ? gradeLabel(targetGrade) : report.gradeLabel);
+  }
   if (isKidsReport(report)) {
     return beltDisplayLabel(report.gradeLabel);
   }
@@ -3394,7 +3405,7 @@ function renderKidsPrintableEvaluation(report) {
       <footer class="kids-report-footer">
         <div>
           <strong>Mensaje del sensei</strong>
-          <span>Lo importante es mejorar un poco cada dia: atencion, respeto y ganas de aprender.</span>
+          <span>Lo importante es mejorar un poco cada día: atención, respeto y ganas de aprender.</span>
         </div>
         <div class="student-signature">Firma profesor</div>
       </footer>
