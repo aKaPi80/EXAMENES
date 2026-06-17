@@ -1,6 +1,6 @@
 ﻿﻿export const SUPABASE_URL = 'https://zipfwmmwcawfbqofhwmc.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_j1dhehxot0jJ98uUNblN4A_c3ujTqn6';
-export const EXAM_SHEET_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwIlIhKLBYGzn7thGWPOxMX7mhySPKN6HkR1ZmpLzdDK6eVUsKzoOkFXAQBTPiGh7wY/exec';
+export const EXAM_SHEET_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwauCWbuWAQoCQW3LwkdJEiAJPNtdbGzzyrGWBwzyFVtlmz7Smtz80GbR7YztUQzfor/exec';
 
 export const grades = [
   ['5kyu', '5 KYU (Amarillo)'],
