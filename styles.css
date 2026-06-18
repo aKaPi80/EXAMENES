@@ -2053,10 +2053,18 @@ button, input, select, textarea { font: inherit; }
   .kids-student-report {
     width: 190mm;
     max-width: 190mm;
-    min-height: auto;
-    font-size: 8.2px;
-    background: #ffffff;
+    min-height: 277mm;
+    padding: 10mm;
+    font-size: 10px;
+    background:
+      linear-gradient(180deg, rgba(245, 250, 255, 0.95), #ffffff 34%),
+      radial-gradient(circle at 90% 4%, rgba(255, 193, 7, 0.22), transparent 22%),
+      radial-gradient(circle at 4% 96%, rgba(25, 118, 210, 0.13), transparent 20%);
+    border: 1px solid #cfe0f2;
+    border-radius: 0;
     overflow: hidden;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
   }
 
   .kids-report-hero {
@@ -2064,10 +2072,12 @@ button, input, select, textarea { font: inherit; }
     flex-direction: row !important;
     align-items: stretch !important;
     justify-content: space-between !important;
-    padding: 10px;
-    margin-bottom: 7px;
-    gap: 8px;
-    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 12px;
+    gap: 12px;
+    border-radius: 12px;
+    background: #f5faff !important;
+    border-left: 8px solid var(--blue);
   }
 
   .kids-report-brand {
@@ -2082,68 +2092,68 @@ button, input, select, textarea { font: inherit; }
   }
 
   .kids-report-logo {
-    width: 48px;
-    height: 48px;
+    width: 62px;
+    height: 62px;
   }
 
   .kids-report-logo img {
-    width: calc(100% - 8px);
-    height: calc(100% - 8px);
+    width: calc(100% - 10px);
+    height: calc(100% - 10px);
     object-fit: contain;
   }
 
   .kids-report-hero h1 {
-    font-size: 17px;
+    font-size: 23px;
     max-width: 100%;
   }
 
   .kids-report-hero h2 {
-    font-size: 9px;
+    font-size: 12px;
   }
 
   .kids-result-card {
-    width: 142px;
-    flex: 0 0 142px !important;
-    padding: 8px;
+    width: 156px;
+    flex: 0 0 156px !important;
+    padding: 10px;
   }
 
   .kids-result-card strong {
-    font-size: 9px;
+    font-size: 13px;
   }
 
   .kids-progress-strip {
     display: grid !important;
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-    gap: 5px;
-    margin-bottom: 7px;
+    gap: 7px;
+    margin-bottom: 10px;
   }
 
   .kids-progress-strip div {
-    padding: 5px 6px;
+    padding: 7px 8px;
   }
 
   .kids-message-card {
-    grid-template-columns: 32px 1fr;
-    gap: 8px;
-    padding: 7px 8px;
-    margin-bottom: 8px;
+    grid-template-columns: 38px 1fr;
+    gap: 10px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
   }
 
   .kids-message-icon {
-    width: 26px;
-    height: 26px;
+    width: 30px;
+    height: 30px;
   }
 
   .kids-message-card h3,
   .kids-panel h3 {
-    font-size: 10px;
+    font-size: 13px;
   }
 
   .kids-report-grid {
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
-    gap: 7px;
-    margin-bottom: 9px;
+    gap: 10px;
+    margin-bottom: 12px;
   }
 
   .kids-report-footer {
@@ -2152,8 +2162,8 @@ button, input, select, textarea { font: inherit; }
   }
 
   .kids-panel {
-    min-height: 92px;
-    padding: 8px;
+    min-height: 120px;
+    padding: 11px;
     overflow: hidden;
   }
 
@@ -2170,55 +2180,55 @@ button, input, select, textarea { font: inherit; }
   }
 
   .kids-panel-goal p {
-    font-size: 8px !important;
-    line-height: 1.32 !important;
-    max-width: 92% !important;
+    font-size: 10px !important;
+    line-height: 1.35 !important;
+    max-width: 100% !important;
   }
 
   .kids-panel ul {
-    gap: 4px;
+    gap: 6px;
   }
 
   .kids-panel li {
-    padding: 4px 6px;
+    padding: 5px 7px;
   }
 
   .kids-mini-stats {
-    margin-top: 7px;
+    margin-top: 9px;
   }
 
   .kids-practice-section h3 {
-    font-size: 12px;
-    margin-bottom: 5px;
+    font-size: 16px;
+    margin-bottom: 7px;
   }
 
   .kids-practice-list {
-    gap: 5px;
+    gap: 7px;
   }
 
   .kids-practice-item {
-    grid-template-columns: 28px 1fr;
-    gap: 6px;
-    padding: 6px;
+    grid-template-columns: 32px 1fr;
+    gap: 8px;
+    padding: 8px;
     border-radius: 7px;
   }
 
   .kids-practice-number {
-    width: 22px;
-    height: 22px;
+    width: 26px;
+    height: 26px;
   }
 
   .kids-practice-item strong {
-    font-size: 8.6px;
+    font-size: 11px;
   }
 
   .kids-practice-item p {
-    margin-top: 2px;
+    margin-top: 3px;
   }
 
   .kids-report-footer {
-    margin-top: 8px;
-    padding: 7px 8px;
+    margin-top: 12px;
+    padding: 10px 12px;
   }
 
   .study-report {
