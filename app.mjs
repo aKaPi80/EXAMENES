@@ -3928,7 +3928,7 @@ async function downloadKidsEvaluationPdf(report, options = {}) {
     doc.setFont('helvetica', options.bold ? 'bold' : 'normal');
     doc.setFontSize(options.size || 10);
     doc.setTextColor(...(options.color || [17, 24, 39]));
-    doc.text(String(text || ''), x, yy, options);
+    doc.text(Array.isArray(text) ? text : String(text || ''), x, yy, options);
   };
 
   const addWrapped = (text, x, yy, width, options = {}) => {
