@@ -3284,6 +3284,12 @@ function kidsReinforceTextHtml(hasImprovementItems) {
     : 'No se han marcado incidencias concretas.<br />Mantén la concentración, el respeto y la energía en cada clase.';
 }
 
+function kidsReinforceTextPdf(hasImprovementItems) {
+  return hasImprovementItems
+    ? 'Los apartados que mostramos a continuación son los que han tenido\nalguna incidencia en el examen.'
+    : 'No se han marcado incidencias concretas.\nMantén la concentración, el respeto y la energía en cada clase.';
+}
+
 function renderReportCommentEditor(report) {
   if (!report.improvementItems.length) return '';
 
@@ -3926,7 +3932,9 @@ async function downloadKidsEvaluationPdf(report, options = {}) {
   };
 
   const addWrapped = (text, x, yy, width, options = {}) => {
-    const lines = doc.splitTextToSize(String(text || ''), width);
+    const lines = String(text || '')
+      .split('\n')
+      .flatMap((line) => doc.splitTextToSize(line, width));
     addText(lines, x, yy, options);
     return yy + (lines.length * ((options.size || 10) + 4));
   };
@@ -4014,7 +4022,7 @@ async function downloadKidsEvaluationPdf(report, options = {}) {
   doc.setFillColor(238, 246, 255);
   doc.roundedRect(margin + panelWidth + 12, y, panelWidth, panelHeight, 8, 8, 'F');
   addText('Recomendamos reforzar', margin + panelWidth + 26, y + 22, { size: 12, bold: true, color: [18, 79, 141] });
-  addWrapped(kidsReinforceText(improvementItems.length),
+  addWrapped(kidsReinforceTextPdf(improvementItems.length),
     margin + panelWidth + 26,
     y + 44,
     panelWidth - 42,
