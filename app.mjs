@@ -2453,6 +2453,7 @@ function renderExamDetails() {
   $('#printStudyExam').addEventListener('click', renderPrintableStudyExam);
   $('#beltOrderBtn').addEventListener('click', openBeltOrderDialog);
   $('#registerPassed').addEventListener('click', registerPassedStudentsInSheet);
+  $('#savePassedReportsToFicha')?.addEventListener('click', savePassedProgressiveReportsToFicha);
   $$('.copy-link').forEach((button) => {
     button.addEventListener('click', () => copyLink(button.dataset.url));
   });
@@ -2584,10 +2585,20 @@ function tribunalResultsHelpText(exam) {
 function renderTribunalResults(exam) {
   const rows = tribunalRowsForExam(exam);
   const expectedExaminers = exam.links?.length || 0;
+  const passedRowsCount = rows.filter((row) => row.examinerResults.length && row.finalPassed).length;
   return `
     <section>
-      <h3>${tribunalResultsTitle(exam)}</h3>
-      <p class="helper-text">${tribunalResultsHelpText(exam)}</p>
+      <div class="section-head">
+        <div>
+          <h3>${tribunalResultsTitle(exam)}</h3>
+          <p class="helper-text">${tribunalResultsHelpText(exam)}</p>
+        </div>
+        ${isProgressiveKidsProgram(exam.program_type) ? `
+          <button class="btn btn-success btn-small" type="button" id="savePassedReportsToFicha" ${passedRowsCount ? '' : 'disabled'}>
+            Guardar informes aprobados en fichas
+          </button>
+        ` : ''}
+      </div>
       <div class="tribunal-list">
         ${rows.map((row) => `
           <article class="tribunal-card">
@@ -2700,6 +2711,140 @@ async function saveTribunalReview(studentId, basePercentage) {
 
   notify('Revisión final del tribunal guardada.');
   await viewExamDetails(exam.id);
+}
+
+function latestTribunalSubmittedAt(row) {
+  const timestamps = row.examinerResults
+    .map((item) => item.evaluation?.submitted_at || item.evaluation?.created_at || '')
+    .filter(Boolean)
+    .map((value) => new Date(value).getTime())
+    .filter((value) => Number.isFinite(value));
+
+  if (!timestamps.length) return new Date().toISOString();
+  return new Date(Math.max(...timestamps)).toISOString();
+}
+
+function mergedTribunalTechniqueEvaluations(row, exam) {
+  const evaluations = row.examinerResults
+    .map((item) => item.evaluation?.technique_evaluations || item.evaluation?.technique_scores || [])
+    .filter((items) => Array.isArray(items) && items.length);
+  const baseTechniques = evaluations[0] || (exam.techniques || []);
+
+  return baseTechniques.map((baseItem, index) => {
+    const sourceItems = evaluations
+      .map((items) => items[index])
+      .filter(Boolean);
+    const reference = sourceItems[0] || baseItem || {};
+
+    if (reference.type === 'cut' || isCutTechnique(reference)) {
+      return { ...reference, skipped: true, score: null };
+    }
+
+    const scored = sourceItems.filter((item) => !item.skipped && Number.isFinite(Number(item.score)));
+    const notes = [...new Set(sourceItems.map((item) => String(item.notes || '').trim()).filter(Boolean))].join(' | ');
+
+    if (!scored.length) {
+      return {
+        ...reference,
+        skipped: true,
+        score: null,
+        notes,
+      };
+    }
+
+    const averageScore = Math.round((scored.reduce((sum, item) => sum + Number(item.score || 0), 0) / scored.length) * 100) / 100;
+    return {
+      ...reference,
+      skipped: false,
+      score: averageScore,
+      notes,
+    };
+  });
+}
+
+function buildTribunalStudentReport(row, exam) {
+  const grade = targetGradeForProgressiveStudent(row.student, exam);
+  const techniqueEvaluations = mergedTribunalTechniqueEvaluations(row, exam);
+  const report = buildPrintableEvaluation({
+    clubName: state.professor.club_name,
+    examTitle: exam.title,
+    grade,
+    studentName: row.student.student_name || 'Estudiante',
+    beltColor: row.student.student_belt_color || '',
+    examinerName: examinerNamesForTribunalRow(row, exam),
+    passPercentage: exam.pass_percentage,
+    techniqueEvaluations,
+    adjustmentPoints: 0,
+    submittedAt: row.review?.reviewed_at || row.review?.updated_at || row.review?.created_at || latestTribunalSubmittedAt(row),
+  });
+
+  report.programType = exam.program_type || 'ninos_progresivo';
+  report.logoUrl = state.professor.logo_url || DEFAULT_CLUB_LOGO_URL;
+  report.examId = exam.id;
+  report.evaluationId = `tribunal-${exam.id}-${row.student.id}`;
+  report.studentRef = row.student.student_ref || '';
+  report.studentSourceId = row.student.student_source_id || '';
+  report.sourceGrade = sourceGradeForSheetRegistration(grade, exam);
+  report.examinerName = examinerNamesForTribunalRow(row, exam);
+  report.improvementItems = buildStudentImprovementItems(report.techniqueEvaluations);
+  report.strengthItems = buildStudentStrengthItems(report.techniqueEvaluations);
+  report.summary = {
+    ...report.summary,
+    percentage: row.finalPercentage,
+    passed: row.finalPassed,
+    totalScore: report.summary.maxScore ? Math.round((report.summary.maxScore * row.finalPercentage) / 100) : report.summary.totalScore,
+  };
+
+  return report;
+}
+
+async function savePassedProgressiveReportsToFicha() {
+  const exam = state.selectedExam;
+  if (!exam || !isProgressiveKidsProgram(exam.program_type)) return;
+
+  const passedRows = tribunalRowsForExam(exam).filter((row) => row.examinerResults.length && row.finalPassed);
+  if (!passedRows.length) {
+    notify('No hay alumnos aprobados con resultado final para guardar informe.', 'warning');
+    return;
+  }
+
+  const savedToken = localStorage.getItem('skbcSheetToken') || '';
+  const token = (prompt('Pega el token configurado en Apps Script para guardar los informes en las fichas:', savedToken) || '').trim();
+  if (!token) return;
+  localStorage.setItem('skbcSheetToken', token);
+
+  if (!confirm(`Se generarán y guardarán ${passedRows.length} informe(s) de alumnos aprobados en sus fichas. ¿Continuar?`)) {
+    return;
+  }
+
+  const button = $('#savePassedReportsToFicha');
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Guardando informes...';
+  }
+
+  const failed = [];
+  for (const [index, row] of passedRows.entries()) {
+    const report = buildTribunalStudentReport(row, exam);
+    notify(`Guardando informe ${index + 1}/${passedRows.length}: ${report.studentName}`);
+    try {
+      await sendEvaluationReportToFicha(report, token);
+    } catch (error) {
+      failed.push(`${report.studentName}: ${error.message}`);
+    }
+  }
+
+  if (button) {
+    button.disabled = false;
+    button.textContent = 'Guardar informes aprobados en fichas';
+  }
+
+  if (failed.length) {
+    showErrors(`No se pudieron guardar algunos informes: ${failed.join(' · ')}`);
+    return;
+  }
+
+  notify(`Informes enviados a Apps Script: ${passedRows.length}. Revisa las fichas cuando se actualice la caché.`);
 }
 
 async function registerPassedStudentsInSheet() {
@@ -3638,14 +3783,22 @@ async function saveEvaluationReportToFicha(report) {
   if (!token) return;
   localStorage.setItem('skbcSheetToken', token);
 
+  try {
+    await sendEvaluationReportToFicha(report, token);
+    notify('Informe enviado a Apps Script. Revisa la ficha cuando se actualice la caché.');
+  } catch (error) {
+    showErrors(`No se pudo enviar el informe: ${error.message}`);
+  }
+}
+
+async function sendEvaluationReportToFicha(report, token) {
   const generated = await downloadEvaluationPdf(report, { save: false });
-  if (!generated?.doc) return;
+  if (!generated?.doc) throw new Error('No se pudo generar el PDF del informe.');
 
   const dataUri = generated.doc.output('datauristring');
   const pdfBase64 = String(dataUri || '').split(',')[1] || '';
   if (!pdfBase64) {
-    showErrors('No se pudo preparar el PDF para subirlo a Drive.');
-    return;
+    throw new Error('No se pudo preparar el PDF para subirlo a Drive.');
   }
 
   const payload = {
@@ -3667,17 +3820,12 @@ async function saveEvaluationReportToFicha(report) {
     evaluationId: report.evaluationId || '',
   };
 
-  try {
-    await fetch(EXAM_SHEET_WEBAPP_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload),
-    });
-    notify('Informe enviado a Apps Script. Revisa la ficha cuando se actualice la caché.');
-  } catch (error) {
-    showErrors(`No se pudo enviar el informe: ${error.message}`);
-  }
+  await fetch(EXAM_SHEET_WEBAPP_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload),
+  });
 }
 
 function downloadStudyExamPdf(report) {
